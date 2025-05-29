@@ -16,6 +16,7 @@ class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   late PageController _pageController;
   final Color inactiveColor = Colors.grey;
+  bool _isAnimating = false;
 
   final List<Widget> _pages = [
     const ScanningPage(),
@@ -41,9 +42,11 @@ class _MainScreenState extends State<MainScreen> {
       body: PageView(
         controller: _pageController,
         onPageChanged: (index) {
-          setState(() => _currentIndex = index);
+          if (!_isAnimating) {
+            setState(() => _currentIndex = index);
+          }
         },
-        physics: const BouncingScrollPhysics(),
+        physics: const ClampingScrollPhysics(),
         children: _pages,
       ),
       bottomNavigationBar: _buildBottomNavBar(),
@@ -53,11 +56,21 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildBottomNavBar() {
     return BottomNavigationBar(
       currentIndex: _currentIndex,
-      onTap: (index) {
+      onTap: (index) async {
+        if (_currentIndex == index || _isAnimating) return;
+
         setState(() {
+          _isAnimating = true;
           _currentIndex = index;
-          _pageController.jumpToPage(index);
         });
+
+        await _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+
+        setState(() => _isAnimating = false);
       },
       items: [
         BottomNavigationBarItem(
@@ -84,6 +97,8 @@ class _MainScreenState extends State<MainScreen> {
       showUnselectedLabels: true,
       elevation: 0,
       backgroundColor: Colors.white,
+      selectedItemColor: primaryBlue,
+      unselectedItemColor: inactiveColor,
     );
   }
 }
