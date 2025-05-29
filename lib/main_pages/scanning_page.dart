@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -24,6 +26,9 @@ class _ScanningPageState extends State<ScanningPage> with TickerProviderStateMix
   late AnimationController _loadingAnimationController;
   final DigitsRecognition _digitsRecognition = DigitsRecognition();
   OverlayEntry? _overlayEntry;
+
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   void initState() {
@@ -106,13 +111,17 @@ class _ScanningPageState extends State<ScanningPage> with TickerProviderStateMix
         measurement.pulse.isEmpty;
 
     setState(() {
-      if (measurement.systolic != '' && measurement.diastolic != '' && measurement.pulse != '') {
+      if (!isFailed) {
         systolic = measurement.systolic;
         diastolic = measurement.diastolic;
         pulse = measurement.pulse;
       }
       _isLoading = false;
     });
+
+    if (!isFailed) {
+      await _saveMeasurement(measurement);
+    }
 
     _showOverlay(isFailed ? 'failed' : 'success_load');
 
@@ -287,6 +296,26 @@ class _ScanningPageState extends State<ScanningPage> with TickerProviderStateMix
     final image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       await _processImage(image);
+    }
+  }
+
+  Future<void> _saveMeasurement(Measurement measurement) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    try {
+      await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('measurements')
+          .add(measurement.toFirestore());
+    } catch (e) {
+      print('Ошибка сохранения измерения: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка сохранения результата')),
+        );
+      }
     }
   }
 

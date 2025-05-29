@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
@@ -15,6 +16,25 @@ class Measurement {
     this.pulse = '',
     DateTime? date,
   }) : date = date ?? DateTime.now();
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'systolic': systolic,
+      'diastolic': diastolic,
+      'pulse': pulse,
+      'date': Timestamp.fromDate(date),
+    };
+  }
+
+  factory Measurement.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Measurement(
+      systolic: data['systolic'] ?? '',
+      diastolic: data['diastolic'] ?? '',
+      pulse: data['pulse'] ?? '',
+      date: (data['date'] as Timestamp).toDate(),
+    );
+  }
 
   @override
   String toString() {
