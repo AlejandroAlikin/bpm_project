@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "264642301408",
+    "firebase_url": "https://bmpam-db1ee-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "bmpam-db1ee",
+    "storage_bucket": "bmpam-db1ee.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:264642301408:android:211daf5c4e447b7a44ef85",
+        "android_client_info": {
+          "package_name": "ru.vsu.cs.alikin.bpm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAC_q0jamryF75Jy_q_udDMhwlAuClfwu4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:264642301408:android:b2bfb8bca90bdfd144ef85",
+        "android_client_info": {
+          "package_name": "ru.vsu.cs.projects.bmpam"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAC_q0jamryF75Jy_q_udDMhwlAuClfwu4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

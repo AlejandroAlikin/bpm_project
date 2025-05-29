@@ -401,11 +401,11 @@ class DataDisplaySection extends StatelessWidget {
 
     switch (label) {
       case 'Верхнее давление':
-        return const Color(0xFFB71C1C); // Темно-красный
+        return const Color(0xFFB71C1C);
       case 'Нижнее давление':
-        return const Color(0xFFF57F17); // Темно-желтый/оранжевый
+        return const Color(0xFFF57F17);
       case 'Пульс':
-        return const Color(0xFF2E7D32); // Темно-зеленый
+        return const Color(0xFF2E7D32);
       default:
         return Colors.black;
     }
@@ -416,19 +416,19 @@ class DataDisplaySection extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), // Увеличенные отступы
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(8), // Отступ вокруг иконки
+                padding: const EdgeInsets.all(8),
                 child: Icon(
                   icon,
                   color: hasData ? _getValueColor() : Colors.grey.shade400,
-                  size: 28, // Увеличенный размер иконки
+                  size: 28,
                 ),
               ),
-              const SizedBox(width: 20), // Увеличенное расстояние между иконкой и текстом
+              const SizedBox(width: 20),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,7 +441,7 @@ class DataDisplaySection extends StatelessWidget {
                         fontWeight: FontWeight.normal,
                       ),
                     ),
-                    const SizedBox(height: 4), // Отступ между лейблом и значением
+                    const SizedBox(height: 4),
                     Text(
                       value ?? '--',
                       style: GoogleFonts.spaceMono(
@@ -459,7 +459,7 @@ class DataDisplaySection extends StatelessWidget {
         Divider(
           height: 1,
           thickness: 1,
-          indent: 24, // Отступ для divider
+          indent: 24,
           endIndent: 24,
           color: Colors.grey.shade200,
         ),

@@ -41,14 +41,11 @@ class DigitsRecognition {
 
   Future<Measurement> recognize(File imageFile) async {
     try {
-      // Base64 encode the image
       final bytes = await imageFile.readAsBytes();
       final encodedFile = base64Encode(bytes);
 
-      // Make API request
       final result = await _makeApiRequest(encodedFile, imageFile.path);
 
-      // Process the response
       final heights = <double>[];
       final digits = _parseResponse(result, heights);
 
@@ -115,18 +112,15 @@ class DigitsRecognition {
   Measurement _processDigits(List<Digit> digits, List<double> heights) {
     if (digits.isEmpty || heights.isEmpty) return Measurement();
 
-    // Calculate delta as average height / 1.5
     final avgHeight = heights.reduce((a, b) => a + b) / heights.length;
     final delta = avgHeight / 1.5;
 
-    // Sort digits by y coordinate (vertical position)
     digits.sort((a, b) => a.y.compareTo(b.y));
 
     final sysData = <Digit>[];
     final diaData = <Digit>[];
     final pulseData = <Digit>[];
 
-    // First row (systolic)
     double firstRowY = digits[0].y;
     for (var digit in digits) {
       if ((digit.y - firstRowY).abs() < delta) {
@@ -136,7 +130,6 @@ class DigitsRecognition {
       }
     }
 
-    // Second row (diastolic)
     if (sysData.length < digits.length) {
       double secondRowY = digits[sysData.length].y;
       for (var digit in digits.sublist(sysData.length)) {
@@ -148,12 +141,10 @@ class DigitsRecognition {
       }
     }
 
-    // Third row (pulse)
     if (sysData.length + diaData.length < digits.length) {
       pulseData.addAll(digits.sublist(sysData.length + diaData.length));
     }
 
-    // Sort each group by x coordinate (horizontal position)
     sysData.sort((a, b) => a.x.compareTo(b.x));
     diaData.sort((a, b) => a.x.compareTo(b.x));
     pulseData.sort((a, b) => a.x.compareTo(b.x));
