@@ -28,6 +28,30 @@ class _ResultsPageState extends State<ResultsPage> {
         .snapshots();
   }
 
+  Future<void> _deleteMeasurement(String docId) async {
+    try {
+      await _firestore
+          .collection('users')
+          .doc(_auth.currentUser?.uid)
+          .collection('measurements')
+          .doc(docId)
+          .delete();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка удаления: $e'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -45,59 +69,84 @@ class _ResultsPageState extends State<ResultsPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
+        scrolledUnderElevation: 0,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _measurementsStream,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text('Ошибка: ${snapshot.error}'));
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return Center(
               child: Text(
-                'Нет данных измерений',
-                style: GoogleFonts.manrope(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
+                'Ошибка загрузки данных',
+                style: GoogleFonts.manrope(fontSize: 16, color: Colors.grey),
               ),
             );
           }
 
-          final measurements = snapshot.data!.docs.map((doc) {
-            return Measurement.fromFirestore(doc);
-          }).toList();
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: primaryBlue),
+            );
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.history_rounded,
+                    size: 60,
+                    color: Colors.grey.shade300,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Нет данных измерений',
+                    style: GoogleFonts.manrope(
+                      fontSize: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final measurements = snapshot.data!.docs
+              .map((doc) => Measurement.fromFirestore(doc))
+              .toList();
 
           final today = DateTime.now();
           final yesterday = today.subtract(const Duration(days: 1));
           final weekStart = today.subtract(const Duration(days: 7));
 
-          final todayMeasurements = measurements.where((m) =>
+          final todayMeasurements = measurements
+              .where((m) =>
           m.date.year == today.year &&
               m.date.month == today.month &&
-              m.date.day == today.day).toList();
+              m.date.day == today.day)
+              .toList();
 
-          final yesterdayMeasurements = measurements.where((m) =>
+          final yesterdayMeasurements = measurements
+              .where((m) =>
           m.date.year == yesterday.year &&
               m.date.month == yesterday.month &&
-              m.date.day == yesterday.day).toList();
+              m.date.day == yesterday.day)
+              .toList();
 
-          final thisWeekMeasurements = measurements.where((m) =>
+          final thisWeekMeasurements = measurements
+              .where((m) =>
           m.date.isAfter(weekStart) &&
               !(m.date.year == today.year &&
                   m.date.month == today.month &&
                   m.date.day == today.day) &&
               !(m.date.year == yesterday.year &&
                   m.date.month == yesterday.month &&
-                  m.date.day == yesterday.day)).toList();
+                  m.date.day == yesterday.day))
+              .toList();
 
-          final olderMeasurements = measurements.where((m) =>
-              m.date.isBefore(weekStart)).toList();
+          final olderMeasurements =
+          measurements.where((m) => m.date.isBefore(weekStart)).toList();
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -105,13 +154,14 @@ class _ResultsPageState extends State<ResultsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (todayMeasurements.isNotEmpty)
-                  _buildSection('Сегодня', todayMeasurements),
+                  _buildSection('Сегодня', todayMeasurements, snapshot.data!.docs),
                 if (yesterdayMeasurements.isNotEmpty)
-                  _buildSection('Вчера', yesterdayMeasurements),
+                  _buildSection('Вчера', yesterdayMeasurements, snapshot.data!.docs),
                 if (thisWeekMeasurements.isNotEmpty)
-                  _buildSection('На этой неделе', thisWeekMeasurements),
+                  _buildSection(
+                      'На этой неделе', thisWeekMeasurements, snapshot.data!.docs),
                 if (olderMeasurements.isNotEmpty)
-                  _buildSection('Ранее', olderMeasurements),
+                  _buildSection('Ранее', olderMeasurements, snapshot.data!.docs),
               ],
             ),
           );
@@ -120,9 +170,13 @@ class _ResultsPageState extends State<ResultsPage> {
     );
   }
 
-  Widget _buildSection(String title, List<Measurement> measurements) {
+  Widget _buildSection(
+      String title,
+      List<Measurement> measurements,
+      List<QueryDocumentSnapshot> docs,
+      ) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -131,44 +185,87 @@ class _ResultsPageState extends State<ResultsPage> {
             child: Text(
               title,
               style: GoogleFonts.manrope(
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: Colors.grey.shade600,
               ),
             ),
           ),
-          ...measurements.map((measurement) => _buildMeasurementCard(measurement)),
+          ...measurements.map((measurement) {
+            final doc = docs.firstWhere(
+                  (d) =>
+              (d['date'] as Timestamp).toDate() == measurement.date &&
+                  d['systolic'] == measurement.systolic &&
+                  d['diastolic'] == measurement.diastolic &&
+                  d['pulse'] == measurement.pulse,
+            );
+
+            return _buildMeasurementCard(measurement, doc.id);
+          }),
         ],
       ),
     );
   }
 
-  Widget _buildMeasurementCard(Measurement measurement) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: Colors.grey.shade200,
-          width: 1,
+  Widget _buildMeasurementCard(Measurement measurement, String docId) {
+    return Dismissible(
+      key: Key(docId),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(12),
         ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: Icon(Icons.delete, color: Colors.red.shade400, size: 28),
       ),
-      child: Padding(
+      confirmDismiss: (direction) async {
+        return await _showDeleteConfirmation(docId);
+      },
+      onDismissed: (direction) => _deleteMeasurement(docId),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 10,
+              spreadRadius: 2,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: Border.all(color: Colors.grey.shade200, width: 1),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              DateFormat('HH:mm').format(measurement.date),
-              style: GoogleFonts.spaceMono(
-                fontSize: 14,
-                color: Colors.grey.shade500,
-              ),
-            ),
-            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  DateFormat('HH:mm').format(measurement.date),
+                  style: GoogleFonts.spaceMono(
+                    fontSize: 14,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+                Text(
+                  DateFormat('dd.MM.yyyy').format(measurement.date),
+                  style: GoogleFonts.spaceMono(
+                    fontSize: 14,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildMeasurementValue(
                   icon: Icons.arrow_circle_up,
@@ -204,16 +301,17 @@ class _ResultsPageState extends State<ResultsPage> {
   }) {
     return Column(
       children: [
-        Icon(icon, size: 24, color: color),
-        const SizedBox(height: 4),
+        Icon(icon, size: 28, color: color),
+        const SizedBox(height: 8),
         Text(
           value,
           style: GoogleFonts.spaceMono(
-            fontSize: 18,
+            fontSize: 20,
             fontWeight: FontWeight.w600,
             color: color,
           ),
         ),
+        const SizedBox(height: 4),
         Text(
           unit,
           style: GoogleFonts.spaceMono(
@@ -222,6 +320,125 @@ class _ResultsPageState extends State<ResultsPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Future<bool> _showDeleteConfirmation(String docId) async {
+    return await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.only(top: 10, bottom: 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(14),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                child: Text(
+                  "Удалить запись?",
+                  style: GoogleFonts.manrope(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  "Это действие нельзя отменить",
+                  style: GoogleFonts.manrope(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildDialogButton(
+                        text: "Отмена",
+                        color: Colors.grey.shade50,
+                        textColor: Colors.grey.shade700,
+                        onPressed: () => Navigator.pop(context, false),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildDialogButton(
+                        text: "Удалить",
+                        color: Colors.red.shade50,
+                        textColor: Colors.red.shade400,
+                        onPressed: () => Navigator.pop(context, true),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ) ??
+        false;
+  }
+
+  Widget _buildDialogButton({
+    required String text,
+    required Color color,
+    required Color textColor,
+    required VoidCallback onPressed,
+  }) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: color == Colors.red.shade50
+                ? Colors.red.shade100
+                : Colors.grey.shade200,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            text,
+            style: GoogleFonts.manrope(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

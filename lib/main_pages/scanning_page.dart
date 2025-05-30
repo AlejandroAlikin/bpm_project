@@ -16,7 +16,8 @@ class ScanningPage extends StatefulWidget {
   State<ScanningPage> createState() => _ScanningPageState();
 }
 
-class _ScanningPageState extends State<ScanningPage> with TickerProviderStateMixin {
+class _ScanningPageState extends State<ScanningPage>
+    with TickerProviderStateMixin {
   String? systolic;
   String? diastolic;
   String? pulse;
@@ -62,37 +63,37 @@ class _ScanningPageState extends State<ScanningPage> with TickerProviderStateMix
     _removeOverlay();
 
     final screenWidth = MediaQuery.of(context).size.width;
-    final size = animationType == 'loading'
-        ? screenWidth / 2
-        : screenWidth / 3;
+    final size = animationType == 'loading' ? screenWidth / 2 : screenWidth / 3;
 
     _overlayEntry = OverlayEntry(
-      builder: (context) => Positioned.fill(
-        child: Material(
-          color: Colors.transparent,
-          child: IgnorePointer(
-            child: Container(
-              color: Colors.black.withOpacity(0.4),
-              child: Center(
-                child: SizedBox(
-                  width: size,
-                  height: size,
-                  child: Lottie.asset(
-                    'assets/animations/$animationType.json',
-                    controller: animationType == 'success_load'
-                        ? _successAnimationController
-                        : animationType == 'failed'
-                        ? _failedAnimationController
-                        : _loadingAnimationController,
-                    fit: BoxFit.contain,
-                    repeat: animationType == 'loading',
+      builder:
+          (context) => Positioned.fill(
+            child: Material(
+              color: Colors.transparent,
+              child: IgnorePointer(
+                child: Container(
+                  color: Colors.black.withOpacity(0.4),
+                  child: Center(
+                    child: SizedBox(
+                      width: size,
+                      height: size,
+                      child: Lottie.asset(
+                        'assets/animations/$animationType.json',
+                        controller:
+                            animationType == 'success_load'
+                                ? _successAnimationController
+                                : animationType == 'failed'
+                                ? _failedAnimationController
+                                : _loadingAnimationController,
+                        fit: BoxFit.contain,
+                        repeat: animationType == 'loading',
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
     );
 
     Overlay.of(context).insert(_overlayEntry!);
@@ -106,7 +107,8 @@ class _ScanningPageState extends State<ScanningPage> with TickerProviderStateMix
   Future<void> _updateData(Measurement measurement) async {
     if (!mounted) return;
 
-    final bool isFailed = measurement.systolic.isEmpty ||
+    final bool isFailed =
+        measurement.systolic.isEmpty ||
         measurement.diastolic.isEmpty ||
         measurement.pulse.isEmpty;
 
@@ -151,7 +153,14 @@ class _ScanningPageState extends State<ScanningPage> with TickerProviderStateMix
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка обработки изображения: $e')),
+          SnackBar(
+            content: Text('Ошибка обработки изображения: $e'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
         );
       }
     } finally {
@@ -166,118 +175,118 @@ class _ScanningPageState extends State<ScanningPage> with TickerProviderStateMix
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.zero,
-          child: Container(
-            height: MediaQuery.of(context).size.height / 3,
-            margin: EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(14),
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                spreadRadius: 5,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 20,
-                  spreadRadius: 5,
+            ],
+          ),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 48,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
                 ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 10),
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(5),
-                  ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Откуда загрузить данные?",
+                style: GoogleFonts.manrope(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                  child: Text(
-                    "Откуда загрузить данные?",
-                    style: GoogleFonts.manrope(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black,
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: [
+                    _buildSourceOption(
+                      icon: Icons.camera_alt_rounded,
+                      label: "Сделать фото",
+                      color: primaryBlue,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _takePhoto();
+                      },
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    _buildSourceOption(
+                      icon: Icons.photo_library_rounded,
+                      label: "Выбрать из галереи",
+                      color: primaryBlue,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _pickFromGallery();
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        height: 60,
-                        child: _buildOptionButton(
-                          icon: Icons.camera_alt,
-                          label: "Сделать фото",
-                          onTap: () {
-                            Navigator.pop(context);
-                            _takePhoto();
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 60,
-                        child: _buildOptionButton(
-                          icon: Icons.photo_library,
-                          label: "Выбрать из галереи",
-                          onTap: () {
-                            Navigator.pop(context);
-                            _pickFromGallery();
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _buildOptionButton({
+  Widget _buildSourceOption({
     required IconData icon,
     required String label,
+    required Color color,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.grey.shade200,
-            width: 1,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200, width: 1),
           ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(icon, size: 28, color: primaryBlue),
-            const SizedBox(width: 16),
-            Text(
-              label,
-              style: GoogleFonts.spaceMono(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 24),
               ),
-            ),
-          ],
+              const SizedBox(width: 16),
+              Text(
+                label,
+                style: GoogleFonts.manrope(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              const Spacer(),
+              Icon(Icons.chevron_right, color: Colors.grey.shade400),
+            ],
+          ),
         ),
       ),
     );
@@ -313,7 +322,14 @@ class _ScanningPageState extends State<ScanningPage> with TickerProviderStateMix
       print('Ошибка сохранения измерения: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка сохранения результата')),
+          SnackBar(
+            content: Text('Ошибка сохранения результата'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(16),
+          ),
         );
       }
     }
@@ -321,176 +337,218 @@ class _ScanningPageState extends State<ScanningPage> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
     return Scaffold(
-      extendBody: true,
       backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Spacer(),
-            Image.asset(
-              width: 100,
-              height: 100,
-              'assets/images/heart_logo.jpg',
-            ),
-            const Spacer(),
-            Text(
-              'Результат измерения',
-              style: GoogleFonts.manrope(
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 50),
-            Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: MediaQuery.of(context).size.width * 0.1,
-              ),
-              child: Column(
-                children: [
-                  DataDisplaySection(
-                    icon: Icons.arrow_circle_up,
-                    label: 'Верхнее давление',
-                    value: systolic,
-                    hasData: systolic != null && systolic!.isNotEmpty,
-                  ),
-                  const SizedBox(height: 10),
-                  DataDisplaySection(
-                    icon: Icons.arrow_circle_down,
-                    label: 'Нижнее давление',
-                    value: diastolic,
-                    hasData: diastolic != null && diastolic!.isNotEmpty,
-                  ),
-                  const SizedBox(height: 10),
-                  DataDisplaySection(
-                    icon: Icons.favorite_outline_rounded,
-                    label: 'Пульс',
-                    value: pulse,
-                    hasData: pulse != null && pulse!.isNotEmpty,
-                  ),
-                ],
-              ),
-            ),
-            const Spacer(),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: ElevatedButton.icon(
-                onPressed: _isLoading ? null : _showScanDialog,
-                icon: const Icon(
-                  Icons.document_scanner,
-                  size: 24,
-                  color: Colors.white,
-                ),
-                label: Text(
-                  _isLoading ? 'Обработка...' : 'Просканировать',
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            children: [
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Мониторинг давления',
                   style: GoogleFonts.manrope(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black,
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  backgroundColor: _isLoading ? Colors.grey : primaryBlue,
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-          ],
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Отслеживайте ваши показатели здоровья',
+                  style: GoogleFonts.manrope(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.shade50,
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (systolic == null ||
+                          diastolic == null ||
+                          pulse == null)
+                        Column(
+                          children: [
+                            Lottie.asset(
+                              'assets/animations/heart_pulse.json',
+                              width: size.width * 0.7,
+                              height: size.width * 0.7,
+                              fit: BoxFit.contain,
+                            ),
+                            const SizedBox(height: 32),
+                            Text(
+                              'Нет данных измерений',
+                              style: GoogleFonts.manrope(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Отсканируйте показания тонометра',
+                              style: GoogleFonts.manrope(
+                                fontSize: 14,
+                                color: Colors.grey.shade500,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        )
+                      else
+                        Column(
+                          children: [
+                            Text(
+                              'Последнее измерение',
+                              style: GoogleFonts.manrope(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildMeasurementCard(
+                                  value: systolic!,
+                                  label: 'Систолическое',
+                                  unit: 'мм рт.ст.',
+                                  icon: Icons.arrow_upward_rounded,
+                                  color: const Color(0xFFE53935),
+                                ),
+                                _buildMeasurementCard(
+                                  value: diastolic!,
+                                  label: 'Диастолическое',
+                                  unit: 'мм рт.ст.',
+                                  icon: Icons.arrow_downward_rounded,
+                                  color: const Color(0xFFFB8C00),
+                                ),
+                                _buildMeasurementCard(
+                                  value: pulse!,
+                                  label: 'Пульс',
+                                  unit: 'уд/мин',
+                                  icon: Icons.favorite_rounded,
+                                  color: const Color(0xFF43A047),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _showScanDialog,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryBlue,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                    shadowColor: Colors.transparent,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _isLoading
+                            ? Icons.hourglass_top
+                            : Icons.document_scanner,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        _isLoading ? 'Обработка...' : 'Сканировать',
+                        style: GoogleFonts.manrope(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
   }
-}
 
-class DataDisplaySection extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String? value;
-  final bool hasData;
-
-  const DataDisplaySection({
-    Key? key,
-    required this.icon,
-    required this.label,
-    this.value,
-    this.hasData = false,
-  }) : super(key: key);
-
-  Color _getValueColor() {
-    if (value == null || value!.isEmpty) return Colors.grey.shade400;
-
-    switch (label) {
-      case 'Верхнее давление':
-        return const Color(0xFFB71C1C);
-      case 'Нижнее давление':
-        return const Color(0xFFF57F17);
-      case 'Пульс':
-        return const Color(0xFF2E7D32);
-      default:
-        return Colors.black;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildMeasurementCard({
+    required String value,
+    required String label,
+    required String unit,
+    required IconData icon,
+    required Color color,
+  }) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                child: Icon(
-                  icon,
-                  color: hasData ? _getValueColor() : Colors.grey.shade400,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.spaceMono(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.normal,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      value ?? '--',
-                      style: GoogleFonts.spaceMono(
-                        fontSize: 20,
-                        color: _getValueColor(),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 28),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          value,
+          style: GoogleFonts.manrope(
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            color: color,
           ),
         ),
-        Divider(
-          height: 1,
-          thickness: 1,
-          indent: 24,
-          endIndent: 24,
-          color: Colors.grey.shade200,
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: GoogleFonts.manrope(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          unit,
+          style: GoogleFonts.manrope(fontSize: 10, color: Colors.grey.shade500),
         ),
       ],
     );

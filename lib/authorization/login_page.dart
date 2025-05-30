@@ -1,20 +1,22 @@
+// login_page.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:bpm/authorization/register_page.dart';
 import 'package:bpm/design/colors.dart';
-import 'package:bpm/main_pages/main_screen.dart';
+import 'package:lottie/lottie.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:bpm/authorization/register_page.dart';
+import 'package:bpm/main_pages/main_screen.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
   @override
-  State<StatefulWidget> createState() => _LoginPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
-  late TextEditingController _emailTextEditingController;
-  late TextEditingController _passwordTextEditingController;
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
   String? _errorMessage;
@@ -30,16 +32,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _emailTextEditingController = TextEditingController();
-    _passwordTextEditingController = TextEditingController();
 
-    // Инициализация анимации дрожания (тыгыдык)
     _shakeController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
     );
 
-    // Анимация влево-вправо
     _shakeAnimation = TweenSequence<Offset>([
       TweenSequenceItem(
         tween: Tween<Offset>(begin: Offset.zero, end: const Offset(0.03, 0)),
@@ -62,7 +60,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       curve: Curves.easeInOut,
     ));
 
-    // Анимация появления ошибки (быстрая - 300ms)
     _errorController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -76,8 +73,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _emailTextEditingController.dispose();
-    _passwordTextEditingController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     _shakeController?.dispose();
     _errorController?.dispose();
     _focusEmail.dispose();
@@ -100,22 +97,20 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     });
   }
 
-  Future<void> _signInWithEmailAndPassword() async {
+  Future<void> _handleLogin() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final UserCredential userCredential =
-      await _auth.signInWithEmailAndPassword(
-        email: _emailTextEditingController.text.trim(),
-        password: _passwordTextEditingController.text.trim(),
+      final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
       );
 
       if (userCredential.user != null) {
         if (!mounted) return;
-        // Сразу убираем кружок загрузки перед переходом
         setState(() => _isLoading = false);
         Navigator.pushReplacement(
           context,
@@ -166,277 +161,149 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    // Цвета для ошибок
-    const errorColor = Color(0xFFB00020);
-    const errorBorderColor = Color(0xFFD32F2F);
-    const errorBackgroundColor = Color(0x15B00020);
-
-    final _errorInputDecoration = InputDecoration(
-      filled: true,
-      fillColor: Colors.white,
-      labelStyle: GoogleFonts.spaceMono(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: errorColor,
-      ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(width: 1.5, color: errorBorderColor),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(width: 1.5, color: errorBorderColor),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(width: 1.5, color: errorBorderColor),
-      ),
-      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-      errorStyle: const TextStyle(height: 0),
-    );
-
-    final _normalInputDecoration = InputDecoration(
-      filled: true,
-      fillColor: Colors.white,
-      labelStyle: GoogleFonts.spaceMono(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: const Color(0xFF1D1B20),
-      ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(width: 1.5),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(width: 1.5, color: Color(0xFFE0E0E0)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(width: 1.5, color: primaryBlue),
-      ),
-      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-      errorStyle: const TextStyle(height: 0),
-    );
-
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          Column(
-            children: [
-              Expanded(
-                flex: 7,
-                child: Center(
-                  child: Image.asset(
-                    'assets/images/heart_logo.jpg',
-                    width: 200,
-                    height: 200,
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 40),
+                  Lottie.asset(
+                    'assets/animations/heart_pulse.json',
+                    width: 150,
+                    height: 150,
                     fit: BoxFit.contain,
                   ),
-                ),
-              ),
-
-              Expanded(
-                flex: 7,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'С возвращением!',
-                          style: GoogleFonts.manrope(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 28,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 30),
-
-                        // Поле email с анимацией
-                        SlideTransition(
-                          position: _shakeAnimation!,
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: TextField(
-                              controller: _emailTextEditingController,
-                              focusNode: _focusEmail,
-                              decoration: _isEmailError && _errorMessage != null
-                                  ? _errorInputDecoration.copyWith(
-                                prefixIcon: const Icon(
-                                  Icons.email_outlined,
-                                  size: 24,
-                                  color: errorColor,
-                                ),
-                                labelText: 'Адрес эл. почты',
-                              )
-                                  : _normalInputDecoration.copyWith(
-                                prefixIcon: const Icon(
-                                  Icons.email_outlined,
-                                  size: 24,
-                                  color: Colors.black,
-                                ),
-                                labelText: 'Адрес эл. почты',
-                              ),
-                              keyboardType: TextInputType.emailAddress,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 15),
-
-                        // Поле пароля с анимацией
-                        SlideTransition(
-                          position: _shakeAnimation!,
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: TextField(
-                              controller: _passwordTextEditingController,
-                              focusNode: _focusPassword,
-                              obscureText: _obscurePassword,
-                              decoration: _isPasswordError && _errorMessage != null
-                                  ? _errorInputDecoration.copyWith(
-                                prefixIcon: const Icon(
-                                  Icons.password_outlined,
-                                  size: 24,
-                                  color: errorColor,
-                                ),
-                                labelText: 'Пароль',
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility
-                                        : Icons.visibility_off,
-                                    color: errorColor,
-                                    size: 18,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
-                                ),
-                              )
-                                  : _normalInputDecoration.copyWith(
-                                prefixIcon: const Icon(
-                                  Icons.password_outlined,
-                                  size: 24,
-                                  color: Colors.black,
-                                ),
-                                labelText: 'Пароль',
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility
-                                        : Icons.visibility_off,
-                                    color: Colors.black,
-                                    size: 18,
-                                  ),
-                                  onPressed: () {
-                                    setState(() {
-                                      _obscurePassword = !_obscurePassword;
-                                    });
-                                  },
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 24),
+                  Text(
+                    'Вход в аккаунт',
+                    style: GoogleFonts.manrope(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black,
                     ),
                   ),
-                ),
-              ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Введите ваши данные для входа',
+                    style: GoogleFonts.manrope(
+                      fontSize: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
 
-              Expanded(
-                flex: 4,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 50),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                  SlideTransition(
+                    position: _shakeAnimation!,
+                    child: _buildInputField(
+                      controller: _emailController,
+                      focusNode: _focusEmail,
+                      label: 'Email',
+                      icon: Icons.email_rounded,
+                      keyboardType: TextInputType.emailAddress,
+                      isError: _isEmailError,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  SlideTransition(
+                    position: _shakeAnimation!,
+                    child: _buildInputField(
+                      controller: _passwordController,
+                      focusNode: _focusPassword,
+                      label: 'Пароль',
+                      icon: Icons.lock_rounded,
+                      obscureText: _obscurePassword,
+                      isError: _isPasswordError,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          color: _isPasswordError ? const Color(0xFFE53935) : Colors.grey.shade500,
+                        ),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleLogin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryBlue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                        'Войти',
+                        style: GoogleFonts.manrope(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  Row(
                     children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: FractionallySizedBox(
-                            widthFactor: 3 / 4,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _signInWithEmailAndPassword,
-                              style: ElevatedButton.styleFrom(
-                                minimumSize: const Size(0, 50),
-                                backgroundColor: primaryBlue,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                                  : Text(
-                                'Войти',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'или',
+                          style: GoogleFonts.manrope(
+                            color: Colors.grey.shade500,
                           ),
                         ),
                       ),
-                      SizedBox(
-                        width: double.infinity,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: FractionallySizedBox(
-                            widthFactor: 3 / 4,
-                            child: TextButton(
-                              onPressed: _isLoading
-                                  ? null
-                                  : () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const RegisterPage(),
-                                  ),
-                                );
-                              },
-                              style: TextButton.styleFrom(
-                                minimumSize: const Size(double.infinity, 50),
-                                padding: EdgeInsets.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                foregroundColor: Colors.transparent,
-                                splashFactory: NoSplash.splashFactory,
-                              ),
-                              child: Text(
-                                'Зарегистрироваться',
-                                style: GoogleFonts.manrope(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: primaryBlue,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 24),
+
+                  Center(
+                    child: TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const RegisterPage()),
+                      ),
+                      child: RichText(
+                        text: TextSpan(
+                          text: 'Нет аккаунта? ',
+                          style: GoogleFonts.manrope(
+                            color: Colors.grey.shade600,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: 'Зарегистрируйтесь',
+                              style: GoogleFonts.manrope(
+                                color: primaryBlue,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                ],
               ),
-            ],
+            ),
           ),
 
-          // Анимированное окошко ошибки (быстрое)
           if (_errorMessage != null)
             Positioned(
               top: 0,
@@ -457,27 +324,27 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                         decoration: BoxDecoration(
-                          color: errorBackgroundColor,
+                          color: const Color(0x15B00020),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: const Color(0x30B00020), width: 1),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.error_outline, size: 20, color: errorColor),
+                            const Icon(Icons.error_outline, size: 20, color: Color(0xFFE53935)),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 _errorMessage!,
                                 style: GoogleFonts.manrope(
-                                  color: errorColor,
+                                  color: const Color(0xFFE53935),
                                   fontSize: 14,
                                   height: 1.4,
                                 ),
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.close, size: 18, color: errorColor),
+                              icon: const Icon(Icons.close, size: 18, color: Color(0xFFE53935)),
                               onPressed: () {
                                 _errorController?.reverse().then((_) {
                                   if (mounted) {
@@ -498,6 +365,56 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String label,
+    required IconData icon,
+    bool obscureText = false,
+    TextInputType? keyboardType,
+    bool isError = false,
+    Widget? suffixIcon,
+  }) {
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: isError ? const Color(0xFFE53935) : Colors.grey.shade600),
+        suffixIcon: suffixIcon,
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: isError ? const Color(0xFFE53935) : primaryBlue,
+            width: 2,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(
+            color: Color(0xFFE53935),
+            width: 2,
+          ),
+        ),
+        labelStyle: GoogleFonts.manrope(
+          color: isError ? const Color(0xFFE53935) : Colors.grey.shade600,
+        ),
+      ),
+      style: GoogleFonts.manrope(
+        color: Colors.black,
+        fontWeight: FontWeight.w500,
       ),
     );
   }
