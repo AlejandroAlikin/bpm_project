@@ -70,6 +70,7 @@ class _ResultsPageState extends State<ResultsPage> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _measurementsStream,

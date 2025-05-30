@@ -437,21 +437,21 @@ class _ScanningPageState extends State<ScanningPage>
                               children: [
                                 _buildMeasurementCard(
                                   value: systolic!,
-                                  label: 'Систолическое',
+                                  label: 'SYS',
                                   unit: 'мм рт.ст.',
                                   icon: Icons.arrow_upward_rounded,
                                   color: const Color(0xFFE53935),
                                 ),
                                 _buildMeasurementCard(
                                   value: diastolic!,
-                                  label: 'Диастолическое',
+                                  label: 'DIA',
                                   unit: 'мм рт.ст.',
                                   icon: Icons.arrow_downward_rounded,
                                   color: const Color(0xFFFB8C00),
                                 ),
                                 _buildMeasurementCard(
                                   value: pulse!,
-                                  label: 'Пульс',
+                                  label: 'Pulse',
                                   unit: 'уд/мин',
                                   icon: Icons.favorite_rounded,
                                   color: const Color(0xFF43A047),
