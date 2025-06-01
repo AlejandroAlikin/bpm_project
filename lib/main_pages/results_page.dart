@@ -70,103 +70,125 @@ class _ResultsPageState extends State<ResultsPage> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         scrolledUnderElevation: 0,
-        automaticallyImplyLeading: false
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _measurementsStream,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Ошибка загрузки данных',
-                style: GoogleFonts.manrope(fontSize: 16, color: Colors.grey),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            Text(
+              'Все ваши измерения',
+              style: GoogleFonts.manrope(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade600,
               ),
-            );
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: primaryBlue),
-            );
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.history_rounded,
-                    size: 60,
-                    color: Colors.grey.shade300,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Нет данных измерений',
-                    style: GoogleFonts.manrope(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final measurements = snapshot.data!.docs
-              .map((doc) => Measurement.fromFirestore(doc))
-              .toList();
-
-          final today = DateTime.now();
-          final yesterday = today.subtract(const Duration(days: 1));
-          final weekStart = today.subtract(const Duration(days: 7));
-
-          final todayMeasurements = measurements
-              .where((m) =>
-          m.date.year == today.year &&
-              m.date.month == today.month &&
-              m.date.day == today.day)
-              .toList();
-
-          final yesterdayMeasurements = measurements
-              .where((m) =>
-          m.date.year == yesterday.year &&
-              m.date.month == yesterday.month &&
-              m.date.day == yesterday.day)
-              .toList();
-
-          final thisWeekMeasurements = measurements
-              .where((m) =>
-          m.date.isAfter(weekStart) &&
-              !(m.date.year == today.year &&
-                  m.date.month == today.month &&
-                  m.date.day == today.day) &&
-              !(m.date.year == yesterday.year &&
-                  m.date.month == yesterday.month &&
-                  m.date.day == yesterday.day))
-              .toList();
-
-          final olderMeasurements =
-          measurements.where((m) => m.date.isBefore(weekStart)).toList();
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (todayMeasurements.isNotEmpty)
-                  _buildSection('Сегодня', todayMeasurements, snapshot.data!.docs),
-                if (yesterdayMeasurements.isNotEmpty)
-                  _buildSection('Вчера', yesterdayMeasurements, snapshot.data!.docs),
-                if (thisWeekMeasurements.isNotEmpty)
-                  _buildSection(
-                      'На этой неделе', thisWeekMeasurements, snapshot.data!.docs),
-                if (olderMeasurements.isNotEmpty)
-                  _buildSection('Ранее', olderMeasurements, snapshot.data!.docs),
-              ],
             ),
-          );
-        },
+            const SizedBox(height: 16),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _measurementsStream,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Ошибка загрузки данных',
+                        style: GoogleFonts.manrope(
+                            fontSize: 16,
+                            color: Colors.grey
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: primaryBlue),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.history_rounded,
+                            size: 60,
+                            color: Colors.grey.shade300,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Нет данных измерений',
+                            style: GoogleFonts.manrope(
+                              fontSize: 16,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final measurements = snapshot.data!.docs
+                      .map((doc) => Measurement.fromFirestore(doc))
+                      .toList();
+
+                  final today = DateTime.now();
+                  final yesterday = today.subtract(const Duration(days: 1));
+                  final weekStart = today.subtract(const Duration(days: 7));
+
+                  final todayMeasurements = measurements
+                      .where((m) =>
+                  m.date.year == today.year &&
+                      m.date.month == today.month &&
+                      m.date.day == today.day)
+                      .toList();
+
+                  final yesterdayMeasurements = measurements
+                      .where((m) =>
+                  m.date.year == yesterday.year &&
+                      m.date.month == yesterday.month &&
+                      m.date.day == yesterday.day)
+                      .toList();
+
+                  final thisWeekMeasurements = measurements
+                      .where((m) =>
+                  m.date.isAfter(weekStart) &&
+                      !(m.date.year == today.year &&
+                          m.date.month == today.month &&
+                          m.date.day == today.day) &&
+                      !(m.date.year == yesterday.year &&
+                          m.date.month == yesterday.month &&
+                          m.date.day == yesterday.day))
+                      .toList();
+
+                  final olderMeasurements =
+                  measurements.where((m) => m.date.isBefore(weekStart)).toList();
+
+                  return SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (todayMeasurements.isNotEmpty)
+                          _buildSection('Сегодня', todayMeasurements, snapshot.data!.docs),
+                        if (yesterdayMeasurements.isNotEmpty)
+                          _buildSection('Вчера', yesterdayMeasurements, snapshot.data!.docs),
+                        if (thisWeekMeasurements.isNotEmpty)
+                          _buildSection(
+                              'На этой неделе', thisWeekMeasurements, snapshot.data!.docs),
+                        if (olderMeasurements.isNotEmpty)
+                          _buildSection('Ранее', olderMeasurements, snapshot.data!.docs),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -182,7 +204,7 @@ class _ResultsPageState extends State<ResultsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
               title,
               style: GoogleFonts.manrope(
@@ -213,10 +235,10 @@ class _ResultsPageState extends State<ResultsPage> {
       key: Key(docId),
       direction: DismissDirection.endToStart,
       background: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
@@ -227,11 +249,11 @@ class _ResultsPageState extends State<ResultsPage> {
       },
       onDismissed: (direction) => _deleteMeasurement(docId),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
               color: Colors.grey.withOpacity(0.1),
@@ -302,20 +324,28 @@ class _ResultsPageState extends State<ResultsPage> {
   }) {
     return Column(
       children: [
-        Icon(icon, size: 28, color: color),
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 24, color: color),
+        ),
         const SizedBox(height: 8),
         Text(
           value,
-          style: GoogleFonts.spaceMono(
+          style: GoogleFonts.manrope(
             fontSize: 20,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w800,
             color: color,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           unit,
-          style: GoogleFonts.spaceMono(
+          style: GoogleFonts.manrope(
             fontSize: 12,
             color: Colors.grey.shade500,
           ),
@@ -335,7 +365,7 @@ class _ResultsPageState extends State<ResultsPage> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(14),
+              top: Radius.circular(24),
             ),
             boxShadow: [
               BoxShadow(
@@ -406,8 +436,7 @@ class _ResultsPageState extends State<ResultsPage> {
           ),
         );
       },
-    ) ??
-        false;
+    ) ?? false;
   }
 
   Widget _buildDialogButton({

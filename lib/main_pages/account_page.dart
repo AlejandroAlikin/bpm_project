@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import '../design/colors.dart';
+import '../sec_place_pages/analytics_page.dart';
+import '../sec_place_pages/edit_profile_page.dart';
+import '../sec_place_pages/notifications_page.dart';
 
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
@@ -14,12 +18,10 @@ class AccountPage extends StatefulWidget {
 }
 
 class _AccountPageState extends State<AccountPage> {
-  File? _localProfileImage;
-  bool _isLoading = false;
-  String? _profileImageUrl;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  File? _profileImage;
+  bool _isLoadingImage = false;
 
   @override
   void initState() {
@@ -28,162 +30,254 @@ class _AccountPageState extends State<AccountPage> {
   }
 
   Future<void> _loadProfileImage() async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-
-    setState(() => _isLoading = true);
-
+    setState(() => _isLoadingImage = true);
     try {
-      final doc = await _firestore.collection('users').doc(user.uid).get();
+      final user = _auth.currentUser;
+      if (user != null) {
+        final ref = _storage.ref().child('profile_images/${user.uid}');
+        final url = await ref.getDownloadURL();
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/profile_image.jpg');
+        final response = await HttpClient().getUrl(Uri.parse(url));
+        final request = await response.close();
+        await request.pipe(file.openWrite());
 
-      if (doc.exists && doc.data()?['profileImageUrl'] != null) {
-        final url = doc.data()?['profileImageUrl'] as String;
-        setState(() => _profileImageUrl = url);
+        if (mounted) {
+          setState(() => _profileImage = file);
+        }
       }
     } catch (e) {
-      print('Ошибка загрузки фото: $e');
+      // Если изображения нет, просто игнорируем ошибку
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() => _isLoadingImage = false);
       }
     }
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickAndUploadImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedFile != null && _auth.currentUser != null) {
-      setState(() => _isLoading = true);
-
+    if (pickedFile != null) {
+      setState(() => _isLoadingImage = true);
       try {
-        final user = _auth.currentUser!;
-        final file = File(pickedFile.path);
+        final user = _auth.currentUser;
+        if (user == null) return;
 
-        final ref = _storage.ref('profile_images/${user.uid}');
-        await ref.putFile(file);
+        final ref = _storage.ref().child('profile_images/${user.uid}');
+        await ref.putFile(File(pickedFile.path));
+        await _loadProfileImage();
 
-        final url = await ref.getDownloadURL();
-
-        await _firestore.collection('users').doc(user.uid).set({
-          'profileImageUrl': url,
-          'lastUpdated': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-
-        if (mounted) {
-          setState(() {
-            _profileImageUrl = url;
-            _localProfileImage = file;
-            _isLoading = false;
-          });
-        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Фото профиля обновлено',
+              style: GoogleFonts.manrope(),
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
       } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Ошибка при загрузке изображения',
+              style: GoogleFonts.manrope(),
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      } finally {
         if (mounted) {
-          setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка загрузки фото: $e')),
-          );
+          setState(() => _isLoadingImage = false);
         }
       }
     }
   }
 
-  Future<void> _signOut() async {
-    try {
-      await _auth.signOut();
-      // Навигация на страницу входа
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка выхода: $e')),
-      );
-    }
+  void _showLogoutDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return Container(
+          padding: const EdgeInsets.only(top: 10, bottom: 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                child: Text(
+                  "Выйти из аккаунта?",
+                  style: GoogleFonts.manrope(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  "Вы сможете снова войти в любой момент",
+                  style: GoogleFonts.manrope(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildDialogButton(
+                        text: "Отмена",
+                        color: Colors.grey.shade50,
+                        textColor: Colors.grey.shade700,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildDialogButton(
+                        text: "Выйти",
+                        color: Colors.red.shade50,
+                        textColor: Colors.red.shade400,
+                        onPressed: () {
+                          FirebaseAuth.instance.signOut();
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDialogButton({
+    required String text,
+    required Color color,
+    required Color textColor,
+    required VoidCallback onPressed,
+  }) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: color == Colors.red.shade50
+                ? Colors.red.shade100
+                : Colors.grey.shade200,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            text,
+            style: GoogleFonts.manrope(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = _auth.currentUser;
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
+      appBar: AppBar(
+        title: Text(
+          'Аккаунт',
+          style: GoogleFonts.manrope(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.black,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+        scrolledUnderElevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Column(
           children: [
-            const SizedBox(height: 40),
-            Center(
-              child: GestureDetector(
-                onTap: _pickImage,
-                child: Stack(
-                  children: [
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.grey.shade200,
-                        border: Border.all(
-                          color: Colors.grey.shade300,
-                          width: 2,
-                        ),
-                      ),
-                      child: _isLoading
-                          ? const Center(child: CircularProgressIndicator())
-                          : _profileImageUrl != null
-                          ? FutureBuilder(
-                        future: _getImageWidget(_profileImageUrl!),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.done) {
-                            return snapshot.data ?? _buildDefaultIcon();
-                          }
-                          return _buildDefaultIcon();
-                        },
-                      )
-                          : _buildDefaultIcon(),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.grey.shade300,
-                            width: 2,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.edit,
-                          size: 20,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
-                  ],
+            _buildProfileCard(user),
+            const SizedBox(height: 32),
+            _buildSectionTitle('Сервис'),
+            _buildAccountOption(
+              icon: Icons.analytics_outlined,
+              title: 'Анализ динамики',
+              subtitle: 'Графики и статистика измерений',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AnalyticsPage()),
+              ),
+            ),
+            _buildAccountOption(
+              icon: Icons.notifications_active_outlined,
+              title: 'Напоминания',
+              subtitle: 'Управление уведомлениями',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationsPage(),
                 ),
               ),
             ),
-            const SizedBox(height: 30),
-            Text(
-              _auth.currentUser?.email ?? 'Пользователь',
-              style: GoogleFonts.manrope(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 40),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _buildAccountButton(
-                      icon: Icons.exit_to_app,
-                      label: 'Выйти из аккаунта',
-                      onTap: _signOut,
-                      color: const Color(0xFF8B0000),
-                    ),
-                  ],
-                ),
-              ),
+            const SizedBox(height: 24),
+            _buildSectionTitle('Аккаунт'),
+            _buildAccountOption(
+              icon: Icons.exit_to_app,
+              title: 'Выйти из аккаунта',
+              subtitle: 'Завершить текущую сессию',
+              color: Colors.red.shade400,
+              onTap: () => _showLogoutDialog(context),
             ),
           ],
         ),
@@ -191,71 +285,180 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
-  Widget _buildDefaultIcon() {
-    return Icon(
-      Icons.account_circle,
-      size: 120,
-      color: Colors.grey.shade400,
+  Widget _buildProfileCard(User? user) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: _isLoadingImage ? null : _pickAndUploadImage,
+            child: Stack(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: primaryBlue.withOpacity(0.1),
+                  ),
+                  child: _isLoadingImage
+                      ? const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: primaryBlue,
+                    ),
+                  )
+                      : _profileImage != null
+                      ? ClipOval(
+                    child: Image.file(
+                      _profileImage!,
+                      fit: BoxFit.cover,
+                      width: 64,
+                      height: 64,
+                    ),
+                  )
+                      : Icon(
+                    Icons.account_circle,
+                    size: 40,
+                    color: primaryBlue,
+                  ),
+                ),
+                if (!_isLoadingImage)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: primaryBlue,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 2,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.edit,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user?.email ?? 'Пользователь',
+                  style: GoogleFonts.manrope(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Премиум статус: не активен',
+                  style: GoogleFonts.manrope(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const EditProfilePage()),
+            ),
+            icon: Icon(Icons.edit, color: Colors.grey.shade500),
+          ),
+        ],
+      ),
     );
   }
 
-  Future<Widget> _getImageWidget(String imageUrl) async {
-    try {
-      return ClipOval(
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          width: 120,
-          height: 120,
-          errorBuilder: (context, error, stackTrace) => _buildDefaultIcon(),
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          style: GoogleFonts.manrope(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade600,
+          ),
         ),
-      );
-    } catch (e) {
-      return _buildDefaultIcon();
-    }
+      ),
+    );
   }
 
-  Widget _buildAccountButton({
+  Widget _buildAccountOption({
     required IconData icon,
-    required String label,
+    required String title,
+    required String subtitle,
+    Color? color,
     required VoidCallback onTap,
-    required Color color,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        borderRadius: BorderRadius.circular(14),
-        color: Colors.white,
+        color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: Colors.grey.shade200,
-                width: 1,
-              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
             ),
             child: Row(
               children: [
-                Icon(icon, size: 28, color: color),
-                const SizedBox(width: 16),
-                Text(
-                  label,
-                  style: GoogleFonts.spaceMono(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: color,
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: (color ?? primaryBlue).withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color ?? primaryBlue, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.manrope(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        style: GoogleFonts.manrope(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const Spacer(),
-                Icon(
-                  Icons.chevron_right,
-                  size: 24,
-                  color: Colors.grey.shade400,
-                ),
+                Icon(Icons.chevron_right, color: Colors.grey.shade400),
               ],
             ),
           ),
