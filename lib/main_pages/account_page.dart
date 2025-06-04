@@ -34,25 +34,23 @@ class _AccountPageState extends State<AccountPage> {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final ref = _storage.ref().child('profile_images/${user.uid}');
-        final url = await ref.getDownloadURL();
-        final tempDir = await getTemporaryDirectory();
-        final file = File('${tempDir.path}/profile_image.jpg');
-        final response = await HttpClient().getUrl(Uri.parse(url));
-        final request = await response.close();
-        await request.pipe(file.openWrite());
-
+        final image = await ProfileService.getProfileImage(user.uid);
         if (mounted) {
-          setState(() => _profileImage = file);
+          setState(() => _profileImage = image);
         }
       }
-    } catch (e) {
-      // Если изображения нет, просто игнорируем ошибку
     } finally {
       if (mounted) {
         setState(() => _isLoadingImage = false);
       }
     }
+  }
+
+  void _navigateToEditProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const EditProfilePage()),
+    ).then((_) => _loadProfileImage());
   }
 
   Future<void> _pickAndUploadImage() async {
@@ -242,6 +240,7 @@ class _AccountPageState extends State<AccountPage> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),

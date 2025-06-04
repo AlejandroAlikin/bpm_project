@@ -28,6 +28,32 @@ class _ResultsPageState extends State<ResultsPage> {
         .snapshots();
   }
 
+  Color _getCardColor(Measurement measurement) {
+    final systolic = int.tryParse(measurement.systolic) ?? 0;
+    final diastolic = int.tryParse(measurement.diastolic) ?? 0;
+
+    if (systolic >= 140 || diastolic >= 90) {
+      return const Color(0xFFFFEBEE); // Светло-красный для высокого давления
+    } else if (systolic <= 100 || diastolic <= 60) {
+      return const Color(0xFFE3F2FD); // Светло-голубой для низкого давления
+    } else {
+      return const Color(0xFFE8F5E9); // Светло-зеленый для нормального давления
+    }
+  }
+
+  Color _getTextColor(Measurement measurement) {
+    final systolic = int.tryParse(measurement.systolic) ?? 0;
+    final diastolic = int.tryParse(measurement.diastolic) ?? 0;
+
+    if (systolic >= 140 || diastolic >= 90) {
+      return const Color(0xFFE53935); // Красный для высокого давления
+    } else if (systolic <= 100 || diastolic <= 60) {
+      return const Color(0xFF1E88E5); // Синий для низкого давления
+    } else {
+      return const Color(0xFF43A047); // Зеленый для нормального давления
+    }
+  }
+
   Future<void> _deleteMeasurement(String docId) async {
     try {
       await _firestore
@@ -70,6 +96,7 @@ class _ResultsPageState extends State<ResultsPage> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -86,6 +113,9 @@ class _ResultsPageState extends State<ResultsPage> {
               ),
             ),
             const SizedBox(height: 16),
+            // Добавляем строку с иконками-атрибутами
+            _buildIconsHeader(),
+            const SizedBox(height: 8),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: _measurementsStream,
@@ -124,6 +154,14 @@ class _ResultsPageState extends State<ResultsPage> {
                             style: GoogleFonts.manrope(
                               fontSize: 16,
                               color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Отсканируйте показания тонометра',
+                            style: GoogleFonts.manrope(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
                             ),
                           ),
                         ],
@@ -167,22 +205,19 @@ class _ResultsPageState extends State<ResultsPage> {
                   final olderMeasurements =
                   measurements.where((m) => m.date.isBefore(weekStart)).toList();
 
-                  return SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (todayMeasurements.isNotEmpty)
-                          _buildSection('Сегодня', todayMeasurements, snapshot.data!.docs),
-                        if (yesterdayMeasurements.isNotEmpty)
-                          _buildSection('Вчера', yesterdayMeasurements, snapshot.data!.docs),
-                        if (thisWeekMeasurements.isNotEmpty)
-                          _buildSection(
-                              'На этой неделе', thisWeekMeasurements, snapshot.data!.docs),
-                        if (olderMeasurements.isNotEmpty)
-                          _buildSection('Ранее', olderMeasurements, snapshot.data!.docs),
-                        const SizedBox(height: 24),
-                      ],
-                    ),
+                  return ListView(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    children: [
+                      if (todayMeasurements.isNotEmpty)
+                        _buildSection('Сегодня', todayMeasurements, snapshot.data!.docs),
+                      if (yesterdayMeasurements.isNotEmpty)
+                        _buildSection('Вчера', yesterdayMeasurements, snapshot.data!.docs),
+                      if (thisWeekMeasurements.isNotEmpty)
+                        _buildSection(
+                            'На этой неделе', thisWeekMeasurements, snapshot.data!.docs),
+                      if (olderMeasurements.isNotEmpty)
+                        _buildSection('Ранее', olderMeasurements, snapshot.data!.docs),
+                    ],
                   );
                 },
               ),
@@ -193,76 +228,131 @@ class _ResultsPageState extends State<ResultsPage> {
     );
   }
 
-  Widget _buildSection(
-      String title,
-      List<Measurement> measurements,
-      List<QueryDocumentSnapshot> docs,
-      ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              title,
-              style: GoogleFonts.manrope(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
-              ),
-            ),
+  // Виджет для отображения заголовка с иконками
+  Widget _buildIconsHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade50,
+            blurRadius: 20,
+            spreadRadius: 2,
           ),
-          ...measurements.map((measurement) {
-            final doc = docs.firstWhere(
-                  (d) =>
-              (d['date'] as Timestamp).toDate() == measurement.date &&
-                  d['systolic'] == measurement.systolic &&
-                  d['diastolic'] == measurement.diastolic &&
-                  d['pulse'] == measurement.pulse,
-            );
-
-            return _buildMeasurementCard(measurement, doc.id);
-          }),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildIconHeaderItem(
+            icon: Icons.arrow_circle_up,
+            label: 'SYS',
+            color: const Color(0xFFE53935),
+          ),
+          _buildIconHeaderItem(
+            icon: Icons.arrow_circle_down,
+            label: 'DIA',
+            color: const Color(0xFFFB8C00),
+          ),
+          _buildIconHeaderItem(
+            icon: Icons.favorite_outline_rounded,
+            label: 'PULSE',
+            color: const Color(0xFF43A047),
+          ),
         ],
       ),
     );
   }
 
+  // Виджет для элемента заголовка с иконкой
+  Widget _buildIconHeaderItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, size: 32, color: color),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: GoogleFonts.manrope(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSection(
+      String title,
+      List<Measurement> measurements,
+      List<QueryDocumentSnapshot> docs,
+      ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 16, bottom: 8),
+          child: Text(
+            title,
+            style: GoogleFonts.manrope(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ),
+        ...measurements.map((measurement) {
+          final doc = docs.firstWhere(
+                (d) =>
+            (d['date'] as Timestamp).toDate() == measurement.date &&
+                d['systolic'] == measurement.systolic &&
+                d['diastolic'] == measurement.diastolic &&
+                d['pulse'] == measurement.pulse,
+          );
+
+          return _buildMeasurementCard(measurement, doc.id);
+        }),
+      ],
+    );
+  }
+
   Widget _buildMeasurementCard(Measurement measurement, String docId) {
+    final cardColor = _getCardColor(measurement);
+    final textColor = _getTextColor(measurement);
+
     return Dismissible(
       key: Key(docId),
       direction: DismissDirection.endToStart,
       background: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
           color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        child: Icon(Icons.delete, color: Colors.red.shade400, size: 28),
+        padding: const EdgeInsets.only(right: 16),
+        child: Icon(Icons.delete, color: Colors.red.shade400, size: 24),
       ),
       confirmDismiss: (direction) async {
         return await _showDeleteConfirmation(docId);
       },
       onDismissed: (direction) => _deleteMeasurement(docId),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              blurRadius: 10,
-              spreadRadius: 2,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(color: Colors.grey.shade200, width: 1),
+          color: cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.grey.shade200,
+            width: 1,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,40 +363,34 @@ class _ResultsPageState extends State<ResultsPage> {
                 Text(
                   DateFormat('HH:mm').format(measurement.date),
                   style: GoogleFonts.spaceMono(
-                    fontSize: 14,
-                    color: Colors.grey.shade500,
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
                   ),
                 ),
                 Text(
                   DateFormat('dd.MM.yyyy').format(measurement.date),
                   style: GoogleFonts.spaceMono(
-                    fontSize: 14,
-                    color: Colors.grey.shade500,
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildMeasurementValue(
-                  icon: Icons.arrow_circle_up,
                   value: measurement.systolic,
-                  unit: 'мм рт.ст.',
-                  color: const Color(0xFFB71C1C),
+                  color: const Color(0xFFE53935),
                 ),
                 _buildMeasurementValue(
-                  icon: Icons.arrow_circle_down,
                   value: measurement.diastolic,
-                  unit: 'мм рт.ст.',
-                  color: const Color(0xFFF57F17),
+                  color: const Color(0xFFFB8C00),
                 ),
                 _buildMeasurementValue(
-                  icon: Icons.favorite_outline_rounded,
                   value: measurement.pulse,
-                  unit: 'уд/мин',
-                  color: const Color(0xFF2E7D32),
+                  color: const Color(0xFF43A047),
                 ),
               ],
             ),
@@ -316,41 +400,18 @@ class _ResultsPageState extends State<ResultsPage> {
     );
   }
 
+  // Упрощенный виджет для отображения значения измерения (без иконки)
   Widget _buildMeasurementValue({
-    required IconData icon,
     required String value,
-    required String unit,
     required Color color,
   }) {
-    return Column(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, size: 24, color: color),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: GoogleFonts.manrope(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            color: color,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          unit,
-          style: GoogleFonts.manrope(
-            fontSize: 12,
-            color: Colors.grey.shade500,
-          ),
-        ),
-      ],
+    return Text(
+      value,
+      style: GoogleFonts.manrope(
+        fontSize: 20,
+        fontWeight: FontWeight.w800,
+        color: color,
+      ),
     );
   }
 

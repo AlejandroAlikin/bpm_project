@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../design/colors.dart';
 
@@ -36,6 +37,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (user != null) {
       _emailController.text = user.email ?? '';
     }
+    _loadProfileImage();
   }
 
   @override
@@ -55,6 +57,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _profileImage = File(pickedFile.path);
       });
       await _uploadImage();
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  Future<void> _loadProfileImage() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        final image = await ProfileService.getProfileImage(user.uid);
+        if (mounted) {
+          setState(() => _profileImage = image);
+        }
+      }
+    } catch (e) {
+      // Обработка ошибки
     }
   }
 
@@ -68,46 +87,34 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       final ref = _storage.ref().child('profile_images/${user.uid}');
 
-      await ref.putFile(_profileImage!);
+      await ref.putFile(
+        _profileImage!,
+        SettableMetadata(cacheControl: "no-cache, max-age=0"),
+      );
 
-      final imageUrl = await ref.getDownloadURL();
+      final newUrl = await ref.getDownloadURL();
 
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-        'photoUrl': imageUrl,
-      });
+      if (mounted) {
+        final imageCache = PaintingBinding.instance.imageCache;
+        imageCache.clear();
+        imageCache.clearLiveImages();
+      }
 
-      if (!mounted) return;
+      final tempDir = await getTemporaryDirectory();
+      final newFile = File('${tempDir.path}/profile_image_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await newFile.writeAsBytes(await _profileImage!.readAsBytes());
+
+      setState(() => _profileImage = newFile);
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Фото профиля обновлено',
-            style: GoogleFonts.manrope(),
-          ),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+        SnackBar(content: Text('Фото профиля обновлено!')),
       );
     } catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Ошибка при загрузке изображения: $e',
-            style: GoogleFonts.manrope(),
-          ),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+        SnackBar(content: Text('Ошибка: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -259,7 +266,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         scrolledUnderElevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         child: Column(
           children: [
             GestureDetector(
@@ -591,5 +598,36 @@ class _EditProfilePageState extends State<EditProfilePage> {
         fontWeight: FontWeight.w500,
       ),
     );
+  }
+}
+
+class ProfileService {
+  static final FirebaseStorage _storage = FirebaseStorage.instance;
+  static File? _cachedProfileImage;
+
+  static Future<File?> getProfileImage(String userId, {bool forceRefresh = false}) async {
+    if (_cachedProfileImage != null && !forceRefresh) {
+      return _cachedProfileImage;
+    }
+
+    try {
+      final ref = _storage.ref().child('profile_images/$userId');
+      final url = await ref.getDownloadURL();
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/profile_image_$userId.jpg');
+
+      final response = await HttpClient().getUrl(Uri.parse(url));
+      await (await response.close()).pipe(file.openWrite());
+
+      _cachedProfileImage = file;
+      return file;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static Future<void> clearCache() {
+    _cachedProfileImage = null;
+    return Future.value();
   }
 }
