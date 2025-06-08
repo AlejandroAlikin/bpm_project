@@ -33,11 +33,11 @@ class _ResultsPageState extends State<ResultsPage> {
     final diastolic = int.tryParse(measurement.diastolic) ?? 0;
 
     if (systolic >= 140 || diastolic >= 90) {
-      return const Color(0xFFFFEBEE); // Светло-красный для высокого давления
+      return const Color(0xFFFFEBEE);
     } else if (systolic <= 100 || diastolic <= 60) {
-      return const Color(0xFFE3F2FD); // Светло-голубой для низкого давления
+      return const Color(0xFFE3F2FD);
     } else {
-      return const Color(0xFFE8F5E9); // Светло-зеленый для нормального давления
+      return const Color(0xFFE8F5E9);
     }
   }
 
@@ -46,11 +46,11 @@ class _ResultsPageState extends State<ResultsPage> {
     final diastolic = int.tryParse(measurement.diastolic) ?? 0;
 
     if (systolic >= 140 || diastolic >= 90) {
-      return const Color(0xFFE53935); // Красный для высокого давления
+      return const Color(0xFFE53935);
     } else if (systolic <= 100 || diastolic <= 60) {
-      return const Color(0xFF1E88E5); // Синий для низкого давления
+      return const Color(0xFF1E88E5);
     } else {
-      return const Color(0xFF43A047); // Зеленый для нормального давления
+      return const Color(0xFF43A047);
     }
   }
 
@@ -113,7 +113,6 @@ class _ResultsPageState extends State<ResultsPage> {
               ),
             ),
             const SizedBox(height: 16),
-            // Добавляем строку с иконками-атрибутами
             _buildIconsHeader(),
             const SizedBox(height: 8),
             Expanded(
@@ -228,7 +227,6 @@ class _ResultsPageState extends State<ResultsPage> {
     );
   }
 
-  // Виджет для отображения заголовка с иконками
   Widget _buildIconsHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -266,7 +264,6 @@ class _ResultsPageState extends State<ResultsPage> {
     );
   }
 
-  // Виджет для элемента заголовка с иконкой
   Widget _buildIconHeaderItem({
     required IconData icon,
     required String label,
@@ -400,7 +397,6 @@ class _ResultsPageState extends State<ResultsPage> {
     );
   }
 
-  // Упрощенный виджет для отображения значения измерения (без иконки)
   Widget _buildMeasurementValue({
     required String value,
     required Color color,

@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz;
 import 'package:flutter/services.dart';
 import '../design/colors.dart';
 
@@ -28,11 +27,48 @@ class _NotificationsPageState extends State<NotificationsPage> {
   void initState() {
     super.initState();
     _initNotifications();
+    _createNotificationChannel();
+  }
+
+  Future<void> _testNotification() async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    AndroidNotificationDetails(
+      'pressure_reminder_channel',
+      'Напоминания об измерениях',
+      channelDescription: 'Напоминания о необходимости измерить давление',
+      importance: Importance.high,
+      priority: Priority.high,
+      enableVibration: true,
+      playSound: true,
+    );
+
+    const NotificationDetails platformChannelSpecifics =
+    NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await _notificationsPlugin.show(
+      0,
+      'Тестовое уведомление',
+      'Проверка работы уведомлений',
+      platformChannelSpecifics,
+    );
+  }
+
+  Future<void> _createNotificationChannel() async {
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'pressure_reminder_channel',
+      'Напоминания об измерениях',
+      description: 'Напоминания о необходимости измерить давление',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    await _notificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
   }
 
   Future<void> _initNotifications() async {
-    tz.initializeTimeZones();
-
     const AndroidInitializationSettings initializationSettingsAndroid =
     AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -56,8 +92,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         hour: prefs.getInt('notificationHour') ?? 9,
         minute: prefs.getInt('notificationMinute') ?? 0,
       );
-      _selectedDays = List.generate(7, (index)
-      => prefs.getBool('notificationDay$index') ?? false);
+      _selectedDays = List.generate(7, (index) => prefs.getBool('notificationDay$index') ?? false);
     });
   }
 
@@ -81,7 +116,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
       if (androidPlugin == null) return false;
 
-      // Просто запрашиваем разрешение - плагин сам обработает версию Android
       final bool? granted = await androidPlugin.requestNotificationsPermission();
       return granted ?? false;
     } catch (e) {
@@ -103,55 +137,72 @@ class _NotificationsPageState extends State<NotificationsPage> {
     for (int i = 0; i < 7; i++) {
       if (_selectedDays[i]) {
         await _scheduleDailyNotification(i);
+        print(i);
       }
     }
   }
 
-  Future<void> _scheduleDailyNotification(int day) async {
+  Future<void> _scheduleDailyNotification(int dayIndex) async {
     try {
       final now = tz.TZDateTime.now(tz.local);
-      var scheduledDate = tz.TZDateTime(
-        tz.local,
-        now.year,
-        now.month,
-        now.day,
-        _selectedTime.hour,
-        _selectedTime.minute,
-      );
 
-      while (scheduledDate.weekday != day + 1) {
-        scheduledDate = scheduledDate.add(const Duration(days: 1));
-      }
+      // Дни недели в Dart: 1 = Monday, 7 = Sunday
+      int targetWeekday = dayIndex + 1; // Преобразуем индекс (0-6) в weekday (1-7)
 
-      if (scheduledDate.isBefore(now)) {
-        scheduledDate = scheduledDate.add(const Duration(days: 7));
-      }
+      // Находим следующую дату с нужным днем недели
+      var scheduledDate = _nextWeekdayDate(now, targetWeekday, _selectedTime);
 
-      const androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      debugPrint('Scheduling notification for: $scheduledDate (weekday: ${scheduledDate.weekday})');
+
+      const androidDetails = AndroidNotificationDetails(
         'pressure_reminder_channel',
         'Напоминания об измерениях',
         channelDescription: 'Напоминания о необходимости измерить давление',
         importance: Importance.high,
         priority: Priority.high,
         enableVibration: true,
+        playSound: true,
       );
 
-      const platformChannelSpecifics = NotificationDetails(
-        android: androidPlatformChannelSpecifics,
-      );
+      const platformDetails = NotificationDetails(android: androidDetails);
 
       await _notificationsPlugin.zonedSchedule(
-        day,
+        dayIndex, // ID уведомления
         'Время измерить давление',
         'Не забудьте измерить давление и внести данные в приложение',
         scheduledDate,
-        platformChannelSpecifics,
+        platformDetails,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
+
+      debugPrint('Notification scheduled successfully for weekday $targetWeekday');
     } catch (e) {
       debugPrint('Error scheduling notification: $e');
     }
+  }
+
+  tz.TZDateTime _nextWeekdayDate(tz.TZDateTime now, int weekday, TimeOfDay time) {
+    var scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      time.hour,
+      time.minute,
+    );
+
+    // Пока не найдем нужный день недели
+    while (scheduledDate.weekday != weekday) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+
+    // Если время уже прошло сегодня, переносим на следующую неделю
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 7));
+    }
+
+    return scheduledDate;
   }
 
   Future<void> _cancelAllNotifications() async {
@@ -219,6 +270,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
             _buildDaysSelector(),
             const SizedBox(height: 32),
             _buildSaveButton(),
+            // const SizedBox(height: 16),
+            // _buildTestButton(),
           ],
         ),
       ),
@@ -471,4 +524,29 @@ class _NotificationsPageState extends State<NotificationsPage> {
       ),
     );
   }
+
+  // Widget _buildTestButton() {
+  //   return SizedBox(
+  //     width: double.infinity,
+  //     child: ElevatedButton(
+  //       onPressed: _testNotification,
+  //       style: ElevatedButton.styleFrom(
+  //         backgroundColor: Colors.grey.shade100,
+  //         padding: const EdgeInsets.symmetric(vertical: 16),
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(16),
+  //         ),
+  //         elevation: 0,
+  //       ),
+  //       child: Text(
+  //         'Тестовое уведомление',
+  //         style: GoogleFonts.manrope(
+  //           fontSize: 16,
+  //           fontWeight: FontWeight.w600,
+  //           color: primaryBlue,
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 }

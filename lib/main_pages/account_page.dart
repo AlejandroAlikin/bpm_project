@@ -288,8 +288,15 @@ class _AccountPageState extends State<AccountPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade50,
+            blurRadius: 20,
+            spreadRadius: 2,
+          ),
+        ],
       ),
       child: Row(
         children: [

@@ -10,7 +10,6 @@ import 'authorization/login_page.dart';
 import 'main_pages/main_screen.dart';
 import 'design/colors.dart';
 
-// Инициализация плагина уведомлений
 final FlutterLocalNotificationsPlugin notificationsPlugin =
 FlutterLocalNotificationsPlugin();
 
@@ -52,8 +51,7 @@ Future<void> _initializeNotifications() async {
   );
 
   await notificationsPlugin
-      .resolvePlatformSpecificImplementation<
-      AndroidFlutterLocalNotificationsPlugin>()
+      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(channel);
 }
 
@@ -144,6 +142,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
     super.initState();
+    FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
     _authStateChanges = FirebaseAuth.instance.authStateChanges();
   }
 
@@ -158,9 +157,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
           if (user == null) {
             return const LoginPage();
           } else {
-            if (!user.emailVerified) {
-              return const LoginPage();
-            }
             return const MainScreen();
           }
         }
