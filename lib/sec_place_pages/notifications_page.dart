@@ -5,8 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../design/colors.dart';
+import '../design/elderly_styles.dart';
+import '../services/theme_service.dart';
+import '../services/tts_service.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -18,6 +21,7 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
   FlutterLocalNotificationsPlugin();
+  final TTSService _tts = TTSService();
   bool _notificationsEnabled = false;
   TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
   List<bool> _selectedDays = List.generate(7, (index) => false);
@@ -28,6 +32,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
     super.initState();
     _initNotifications();
     _createNotificationChannel();
+    _tts.init();
+  }
+
+  @override
+  void dispose() {
+    _tts.dispose();
+    super.dispose();
   }
 
   Future<void> _testNotification() async {
@@ -92,7 +103,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
         hour: prefs.getInt('notificationHour') ?? 9,
         minute: prefs.getInt('notificationMinute') ?? 0,
       );
-      _selectedDays = List.generate(7, (index) => prefs.getBool('notificationDay$index') ?? false);
+      _selectedDays = List.generate(
+          7, (index) => prefs.getBool('notificationDay$index') ?? false);
     });
   }
 
@@ -111,7 +123,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     try {
       final AndroidFlutterLocalNotificationsPlugin? androidPlugin =
-      _notificationsPlugin.resolvePlatformSpecificImplementation<
+      _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
 
       if (androidPlugin == null) return false;
@@ -137,7 +150,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
     for (int i = 0; i < 7; i++) {
       if (_selectedDays[i]) {
         await _scheduleDailyNotification(i);
-        print(i);
       }
     }
   }
@@ -145,14 +157,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Future<void> _scheduleDailyNotification(int dayIndex) async {
     try {
       final now = tz.TZDateTime.now(tz.local);
+      int targetWeekday = dayIndex + 1;
 
-      // Дни недели в Dart: 1 = Monday, 7 = Sunday
-      int targetWeekday = dayIndex + 1; // Преобразуем индекс (0-6) в weekday (1-7)
-
-      // Находим следующую дату с нужным днем недели
       var scheduledDate = _nextWeekdayDate(now, targetWeekday, _selectedTime);
-
-      debugPrint('Scheduling notification for: $scheduledDate (weekday: ${scheduledDate.weekday})');
 
       const androidDetails = AndroidNotificationDetails(
         'pressure_reminder_channel',
@@ -167,7 +174,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       const platformDetails = NotificationDetails(android: androidDetails);
 
       await _notificationsPlugin.zonedSchedule(
-        dayIndex, // ID уведомления
+        dayIndex,
         'Время измерить давление',
         'Не забудьте измерить давление и внести данные в приложение',
         scheduledDate,
@@ -175,14 +182,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       );
-
-      debugPrint('Notification scheduled successfully for weekday $targetWeekday');
     } catch (e) {
       debugPrint('Error scheduling notification: $e');
     }
   }
 
-  tz.TZDateTime _nextWeekdayDate(tz.TZDateTime now, int weekday, TimeOfDay time) {
+  tz.TZDateTime _nextWeekdayDate(
+      tz.TZDateTime now, int weekday, TimeOfDay time) {
     var scheduledDate = tz.TZDateTime(
       tz.local,
       now.year,
@@ -192,12 +198,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
       time.minute,
     );
 
-    // Пока не найдем нужный день недели
     while (scheduledDate.weekday != weekday) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-    // Если время уже прошло сегодня, переносим на следующую неделю
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 7));
     }
@@ -209,7 +213,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     await _notificationsPlugin.cancelAll();
   }
 
-  Future<void> _selectTime(BuildContext context) async {
+  Future<void> _selectTime(BuildContext context, bool isElderly) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime,
@@ -231,59 +235,69 @@ class _NotificationsPageState extends State<NotificationsPage> {
       setState(() => _selectedTime = picked);
       await _saveNotificationSettings();
       await _scheduleNotifications();
+      if (isElderly) {
+        await _tts.speak('Время напоминания установлено на ${picked.format(context)}');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    final isElderly = themeService.isElderlyMode;
+
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: isElderly ? ElderlyStyles.backgroundColor : Colors.white,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isElderly ? ElderlyStyles.backgroundColor : Colors.white,
       appBar: AppBar(
         title: Text(
           'Напоминания',
-          style: GoogleFonts.manrope(
+          style: isElderly
+              ? ElderlyStyles.headlineMedium
+              : GoogleFonts.manrope(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: Colors.black,
           ),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
+        backgroundColor: isElderly ? ElderlyStyles.backgroundColor : Colors.white,
+        elevation: isElderly ? 1 : 0,
         iconTheme: const IconThemeData(color: Colors.black),
         scrolledUnderElevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: EdgeInsets.symmetric(
+          horizontal: isElderly ? 20 : 24,
+          vertical: isElderly ? 20 : 16,
+        ),
         child: Column(
           children: [
-            _buildNotificationToggle(),
+            _buildNotificationToggle(isElderly),
             const SizedBox(height: 24),
-            _buildTimePicker(),
+            _buildTimePicker(isElderly),
             const SizedBox(height: 24),
-            _buildDaysSelector(),
+            _buildDaysSelector(isElderly),
             const SizedBox(height: 32),
-            _buildSaveButton(),
-            // const SizedBox(height: 16),
-            // _buildTestButton(),
+            _buildSaveButton(isElderly),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildNotificationToggle() {
+  Widget _buildNotificationToggle(bool isElderly) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isElderly ? 18 : 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: isElderly ? ElderlyStyles.surfaceColor : Colors.white,
+        borderRadius: BorderRadius.circular(isElderly ? 18 : 16),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
@@ -296,8 +310,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: isElderly ? 56 : 40,
+            height: isElderly ? 56 : 40,
             decoration: BoxDecoration(
               color: primaryBlue.withOpacity(0.1),
               shape: BoxShape.circle,
@@ -305,25 +319,30 @@ class _NotificationsPageState extends State<NotificationsPage> {
             child: Icon(
               Icons.notifications_active_outlined,
               color: primaryBlue,
-              size: 20,
+              size: isElderly ? 28 : 20,
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: isElderly ? 16 : 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Уведомления',
-                  style: GoogleFonts.manrope(
+                  style: isElderly
+                      ? ElderlyStyles.titleLarge
+                      : GoogleFonts.manrope(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: Colors.black,
                   ),
                 ),
+                SizedBox(height: isElderly ? 8 : 4),
                 Text(
                   'Регулярные напоминания',
-                  style: GoogleFonts.manrope(
+                  style: isElderly
+                      ? ElderlyStyles.bodyMedium.copyWith(color: ElderlyStyles.hintColor)
+                      : GoogleFonts.manrope(
                     fontSize: 12,
                     color: Colors.grey.shade600,
                   ),
@@ -338,8 +357,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
               await _saveNotificationSettings();
               if (value) {
                 await _scheduleNotifications();
+                if (isElderly) await _tts.speak('Уведомления включены');
               } else {
                 await _cancelAllNotifications();
+                if (isElderly) await _tts.speak('Уведомления выключены');
               }
             },
             activeColor: primaryBlue,
@@ -349,12 +370,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
-  Widget _buildTimePicker() {
+  Widget _buildTimePicker(bool isElderly) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isElderly ? 18 : 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: isElderly ? ElderlyStyles.surfaceColor : Colors.white,
+        borderRadius: BorderRadius.circular(isElderly ? 18 : 16),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
@@ -369,33 +390,35 @@ class _NotificationsPageState extends State<NotificationsPage> {
         children: [
           Text(
             'Время напоминания',
-            style: GoogleFonts.manrope(
+            style: isElderly
+                ? ElderlyStyles.labelLarge.copyWith(color: ElderlyStyles.hintColor)
+                : GoogleFonts.manrope(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Colors.grey.shade600,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: isElderly ? 16 : 12),
           Material(
             color: Colors.transparent,
             child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => _selectTime(context),
+              borderRadius: BorderRadius.circular(isElderly ? 14 : 12),
+              onTap: () => _selectTime(context, isElderly),
               child: Container(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(isElderly ? 18 : 16),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(12),
+                  color: isElderly ? ElderlyStyles.backgroundColor : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(isElderly ? 14 : 12),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.access_time, color: primaryBlue, size: 20),
-                    const SizedBox(width: 12),
+                    Icon(Icons.access_time, color: primaryBlue, size: isElderly ? 24 : 20),
+                    SizedBox(width: isElderly ? 16 : 12),
                     Text(
                       _selectedTime.format(context),
                       style: GoogleFonts.manrope(
-                        fontSize: 16,
+                        fontSize: isElderly ? 20 : 16,
                         fontWeight: FontWeight.w600,
                         color: Colors.black,
                       ),
@@ -410,13 +433,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
-  Widget _buildDaysSelector() {
+  Widget _buildDaysSelector(bool isElderly) {
     final days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isElderly ? 18 : 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: isElderly ? ElderlyStyles.surfaceColor : Colors.white,
+        borderRadius: BorderRadius.circular(isElderly ? 18 : 16),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
@@ -431,13 +454,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
         children: [
           Text(
             'Дни недели',
-            style: GoogleFonts.manrope(
+            style: isElderly
+                ? ElderlyStyles.labelLarge.copyWith(color: ElderlyStyles.hintColor)
+                : GoogleFonts.manrope(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Colors.grey.shade600,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: isElderly ? 16 : 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: List.generate(7, (index) {
@@ -446,25 +471,25 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   setState(() => _selectedDays[index] = !_selectedDays[index]);
                   await _saveNotificationSettings();
                   await _scheduleNotifications();
+                  if (isElderly) {
+                    final status = _selectedDays[index] ? 'добавлен' : 'удален';
+                    await _tts.speak('День ${days[index]} $status');
+                  }
                 },
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: isElderly ? 48 : 40,
+                  height: isElderly ? 48 : 40,
                   decoration: BoxDecoration(
-                    color: _selectedDays[index]
-                        ? primaryBlue
-                        : Colors.grey.shade50,
+                    color: _selectedDays[index] ? primaryBlue : Colors.grey.shade50,
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: Text(
                       days[index],
                       style: GoogleFonts.manrope(
-                        fontSize: 14,
+                        fontSize: isElderly ? 16 : 14,
                         fontWeight: FontWeight.w600,
-                        color: _selectedDays[index]
-                            ? Colors.white
-                            : Colors.grey.shade700,
+                        color: _selectedDays[index] ? Colors.white : Colors.grey.shade700,
                       ),
                     ),
                   ),
@@ -477,7 +502,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
-  Widget _buildSaveButton() {
+  Widget _buildSaveButton(bool isElderly) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
@@ -490,9 +515,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                _notificationsEnabled
-                    ? 'Напоминания настроены'
-                    : 'Напоминания отключены',
+                _notificationsEnabled ? 'Напоминания настроены' : 'Напоминания отключены',
                 style: GoogleFonts.manrope(),
               ),
               behavior: SnackBarBehavior.floating,
@@ -507,16 +530,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryBlue,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: EdgeInsets.symmetric(vertical: isElderly ? 18 : 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(isElderly ? 16 : 14),
           ),
           elevation: 0,
         ),
         child: Text(
           'Сохранить настройки',
           style: GoogleFonts.manrope(
-            fontSize: 16,
+            fontSize: isElderly ? 20 : 16,
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
@@ -524,29 +547,4 @@ class _NotificationsPageState extends State<NotificationsPage> {
       ),
     );
   }
-
-  // Widget _buildTestButton() {
-  //   return SizedBox(
-  //     width: double.infinity,
-  //     child: ElevatedButton(
-  //       onPressed: _testNotification,
-  //       style: ElevatedButton.styleFrom(
-  //         backgroundColor: Colors.grey.shade100,
-  //         padding: const EdgeInsets.symmetric(vertical: 16),
-  //         shape: RoundedRectangleBorder(
-  //           borderRadius: BorderRadius.circular(16),
-  //         ),
-  //         elevation: 0,
-  //       ),
-  //       child: Text(
-  //         'Тестовое уведомление',
-  //         style: GoogleFonts.manrope(
-  //           fontSize: 16,
-  //           fontWeight: FontWeight.w600,
-  //           color: primaryBlue,
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
 }

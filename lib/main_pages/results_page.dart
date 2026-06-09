@@ -3,7 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../design/colors.dart';
+import '../design/elderly_styles.dart';
+import '../services/theme_service.dart';
+import '../services/tts_service.dart';
 
 class ResultsPage extends StatefulWidget {
   const ResultsPage({super.key});
@@ -15,6 +19,7 @@ class ResultsPage extends StatefulWidget {
 class _ResultsPageState extends State<ResultsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final TTSService _tts = TTSService();
   late Stream<QuerySnapshot> _measurementsStream;
 
   @override
@@ -26,6 +31,13 @@ class _ResultsPageState extends State<ResultsPage> {
         .collection('measurements')
         .orderBy('date', descending: true)
         .snapshots();
+    _tts.init();
+  }
+
+  @override
+  void dispose() {
+    _tts.dispose();
+    super.dispose();
   }
 
   Color _getCardColor(Measurement measurement) {
@@ -80,40 +92,47 @@ class _ResultsPageState extends State<ResultsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    final isElderly = themeService.isElderlyMode;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isElderly ? ElderlyStyles.backgroundColor : Colors.white,
       appBar: AppBar(
         title: Text(
           'История измерений',
-          style: GoogleFonts.manrope(
+          style: isElderly
+              ? ElderlyStyles.headlineMedium
+              : GoogleFonts.manrope(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: Colors.black,
           ),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
+        backgroundColor: isElderly ? ElderlyStyles.backgroundColor : Colors.white,
+        elevation: isElderly ? 1 : 0,
         iconTheme: const IconThemeData(color: Colors.black),
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
       ),
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: EdgeInsets.symmetric(horizontal: isElderly ? 20 : 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 16),
             Text(
               'Все ваши измерения',
-              style: GoogleFonts.manrope(
+              style: isElderly
+                  ? ElderlyStyles.bodyMedium.copyWith(color: ElderlyStyles.hintColor)
+                  : GoogleFonts.manrope(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: Colors.grey.shade600,
               ),
             ),
             const SizedBox(height: 16),
-            _buildIconsHeader(),
+            _buildIconsHeader(isElderly),
             const SizedBox(height: 8),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
@@ -123,10 +142,9 @@ class _ResultsPageState extends State<ResultsPage> {
                     return Center(
                       child: Text(
                         'Ошибка загрузки данных',
-                        style: GoogleFonts.manrope(
-                            fontSize: 16,
-                            color: Colors.grey
-                        ),
+                        style: isElderly
+                            ? ElderlyStyles.bodyMedium
+                            : GoogleFonts.manrope(fontSize: 16, color: Colors.grey),
                       ),
                     );
                   }
@@ -144,24 +162,22 @@ class _ResultsPageState extends State<ResultsPage> {
                         children: [
                           Icon(
                             Icons.history_rounded,
-                            size: 60,
+                            size: isElderly ? 80 : 60,
                             color: Colors.grey.shade300,
                           ),
                           const SizedBox(height: 16),
                           Text(
                             'Нет данных измерений',
-                            style: GoogleFonts.manrope(
-                              fontSize: 16,
-                              color: Colors.grey,
-                            ),
+                            style: isElderly
+                                ? ElderlyStyles.titleLarge
+                                : GoogleFonts.manrope(fontSize: 16, color: Colors.grey),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Отсканируйте показания тонометра',
-                            style: GoogleFonts.manrope(
-                              fontSize: 14,
-                              color: Colors.grey.shade500,
-                            ),
+                            style: isElderly
+                                ? ElderlyStyles.bodyMedium.copyWith(color: Colors.grey.shade500)
+                                : GoogleFonts.manrope(fontSize: 14, color: Colors.grey.shade500),
                           ),
                         ],
                       ),
@@ -208,14 +224,13 @@ class _ResultsPageState extends State<ResultsPage> {
                     padding: const EdgeInsets.only(bottom: 16),
                     children: [
                       if (todayMeasurements.isNotEmpty)
-                        _buildSection('Сегодня', todayMeasurements, snapshot.data!.docs),
+                        _buildSection('Сегодня', todayMeasurements, snapshot.data!.docs, isElderly),
                       if (yesterdayMeasurements.isNotEmpty)
-                        _buildSection('Вчера', yesterdayMeasurements, snapshot.data!.docs),
+                        _buildSection('Вчера', yesterdayMeasurements, snapshot.data!.docs, isElderly),
                       if (thisWeekMeasurements.isNotEmpty)
-                        _buildSection(
-                            'На этой неделе', thisWeekMeasurements, snapshot.data!.docs),
+                        _buildSection('На этой неделе', thisWeekMeasurements, snapshot.data!.docs, isElderly),
                       if (olderMeasurements.isNotEmpty)
-                        _buildSection('Ранее', olderMeasurements, snapshot.data!.docs),
+                        _buildSection('Ранее', olderMeasurements, snapshot.data!.docs, isElderly),
                     ],
                   );
                 },
@@ -227,12 +242,12 @@ class _ResultsPageState extends State<ResultsPage> {
     );
   }
 
-  Widget _buildIconsHeader() {
+  Widget _buildIconsHeader(bool isElderly) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      padding: EdgeInsets.symmetric(vertical: isElderly ? 12 : 8, horizontal: isElderly ? 20 : 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: isElderly ? ElderlyStyles.surfaceColor : Colors.white,
+        borderRadius: BorderRadius.circular(isElderly ? 16 : 12),
         boxShadow: [
           BoxShadow(
             color: Colors.blue.shade50,
@@ -248,16 +263,19 @@ class _ResultsPageState extends State<ResultsPage> {
             icon: Icons.arrow_circle_up,
             label: 'SYS',
             color: const Color(0xFFE53935),
+            isElderly: isElderly,
           ),
           _buildIconHeaderItem(
             icon: Icons.arrow_circle_down,
             label: 'DIA',
             color: const Color(0xFFFB8C00),
+            isElderly: isElderly,
           ),
           _buildIconHeaderItem(
             icon: Icons.favorite_outline_rounded,
             label: 'PULSE',
             color: const Color(0xFF43A047),
+            isElderly: isElderly,
           ),
         ],
       ),
@@ -268,14 +286,17 @@ class _ResultsPageState extends State<ResultsPage> {
     required IconData icon,
     required String label,
     required Color color,
+    required bool isElderly,
   }) {
     return Column(
       children: [
-        Icon(icon, size: 32, color: color),
+        Icon(icon, size: isElderly ? 40 : 32, color: color),
         const SizedBox(height: 4),
         Text(
           label,
-          style: GoogleFonts.manrope(
+          style: isElderly
+              ? ElderlyStyles.bodyMedium.copyWith(color: Colors.grey.shade600)
+              : GoogleFonts.manrope(
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color: Colors.grey.shade600,
@@ -289,15 +310,18 @@ class _ResultsPageState extends State<ResultsPage> {
       String title,
       List<Measurement> measurements,
       List<QueryDocumentSnapshot> docs,
+      bool isElderly,
       ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 16, bottom: 8),
+          padding: EdgeInsets.only(top: isElderly ? 20 : 16, bottom: isElderly ? 12 : 8),
           child: Text(
             title,
-            style: GoogleFonts.manrope(
+            style: isElderly
+                ? ElderlyStyles.labelLarge.copyWith(color: ElderlyStyles.hintColor)
+                : GoogleFonts.manrope(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Colors.grey.shade600,
@@ -312,14 +336,13 @@ class _ResultsPageState extends State<ResultsPage> {
                 d['diastolic'] == measurement.diastolic &&
                 d['pulse'] == measurement.pulse,
           );
-
-          return _buildMeasurementCard(measurement, doc.id);
+          return _buildMeasurementCard(measurement, doc.id, isElderly);
         }),
       ],
     );
   }
 
-  Widget _buildMeasurementCard(Measurement measurement, String docId) {
+  Widget _buildMeasurementCard(Measurement measurement, String docId, bool isElderly) {
     final cardColor = _getCardColor(measurement);
     final textColor = _getTextColor(measurement);
 
@@ -327,25 +350,26 @@ class _ResultsPageState extends State<ResultsPage> {
       key: Key(docId),
       direction: DismissDirection.endToStart,
       background: Container(
-        margin: const EdgeInsets.only(bottom: 8),
+        margin: EdgeInsets.only(bottom: isElderly ? 12 : 8),
         decoration: BoxDecoration(
           color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(isElderly ? 16 : 12),
         ),
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16),
-        child: Icon(Icons.delete, color: Colors.red.shade400, size: 24),
+        padding: EdgeInsets.only(right: isElderly ? 24 : 16),
+        child: Icon(Icons.delete, color: Colors.red.shade400, size: isElderly ? 32 : 24),
       ),
       confirmDismiss: (direction) async {
-        return await _showDeleteConfirmation(docId);
+        if (isElderly) await _tts.speak('Вы хотите удалить запись?');
+        return await _showDeleteConfirmation(docId, isElderly);
       },
       onDismissed: (direction) => _deleteMeasurement(docId),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
+        margin: EdgeInsets.only(bottom: isElderly ? 12 : 8),
+        padding: EdgeInsets.all(isElderly ? 16 : 12),
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(isElderly ? 16 : 12),
           border: Border.all(
             color: Colors.grey.shade200,
             width: 1,
@@ -359,35 +383,36 @@ class _ResultsPageState extends State<ResultsPage> {
               children: [
                 Text(
                   DateFormat('HH:mm').format(measurement.date),
-                  style: GoogleFonts.spaceMono(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: isElderly
+                      ? GoogleFonts.spaceMono(fontSize: 14, color: Colors.grey.shade600)
+                      : GoogleFonts.spaceMono(fontSize: 12, color: Colors.grey.shade600),
                 ),
                 Text(
                   DateFormat('dd.MM.yyyy').format(measurement.date),
-                  style: GoogleFonts.spaceMono(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: isElderly
+                      ? GoogleFonts.spaceMono(fontSize: 14, color: Colors.grey.shade600)
+                      : GoogleFonts.spaceMono(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: isElderly ? 12 : 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildMeasurementValue(
                   value: measurement.systolic,
                   color: const Color(0xFFE53935),
+                  isElderly: isElderly,
                 ),
                 _buildMeasurementValue(
                   value: measurement.diastolic,
                   color: const Color(0xFFFB8C00),
+                  isElderly: isElderly,
                 ),
                 _buildMeasurementValue(
                   value: measurement.pulse,
                   color: const Color(0xFF43A047),
+                  isElderly: isElderly,
                 ),
               ],
             ),
@@ -400,30 +425,29 @@ class _ResultsPageState extends State<ResultsPage> {
   Widget _buildMeasurementValue({
     required String value,
     required Color color,
+    required bool isElderly,
   }) {
     return Text(
       value,
       style: GoogleFonts.manrope(
-        fontSize: 20,
+        fontSize: isElderly ? 26 : 20,
         fontWeight: FontWeight.w800,
         color: color,
       ),
     );
   }
 
-  Future<bool> _showDeleteConfirmation(String docId) async {
+  Future<bool> _showDeleteConfirmation(String docId, bool isElderly) async {
     return await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.only(top: 10, bottom: 24),
+          padding: EdgeInsets.only(top: isElderly ? 16 : 10, bottom: isElderly ? 24 : 20),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(24),
-            ),
+            color: isElderly ? ElderlyStyles.surfaceColor : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.2),
@@ -444,10 +468,12 @@ class _ResultsPageState extends State<ResultsPage> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                padding: EdgeInsets.fromLTRB(16, isElderly ? 28 : 24, 16, isElderly ? 12 : 8),
                 child: Text(
                   "Удалить запись?",
-                  style: GoogleFonts.manrope(
+                  style: isElderly
+                      ? ElderlyStyles.headlineMedium
+                      : GoogleFonts.manrope(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: Colors.black,
@@ -458,13 +484,15 @@ class _ResultsPageState extends State<ResultsPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
                   "Это действие нельзя отменить",
-                  style: GoogleFonts.manrope(
+                  style: isElderly
+                      ? ElderlyStyles.bodyMedium
+                      : GoogleFonts.manrope(
                     fontSize: 14,
                     color: Colors.grey.shade600,
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
@@ -472,18 +500,23 @@ class _ResultsPageState extends State<ResultsPage> {
                     Expanded(
                       child: _buildDialogButton(
                         text: "Отмена",
-                        color: Colors.grey.shade50,
-                        textColor: Colors.grey.shade700,
+                        color: isElderly ? ElderlyStyles.surfaceColor : Colors.grey.shade50,
+                        textColor: isElderly ? ElderlyStyles.hintColor : Colors.grey.shade700,
                         onPressed: () => Navigator.pop(context, false),
+                        isElderly: isElderly,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _buildDialogButton(
                         text: "Удалить",
-                        color: Colors.red.shade50,
-                        textColor: Colors.red.shade400,
-                        onPressed: () => Navigator.pop(context, true),
+                        color: isElderly ? ElderlyStyles.errorColor.withOpacity(0.1) : Colors.red.shade50,
+                        textColor: isElderly ? ElderlyStyles.errorColor : Colors.red.shade400,
+                        onPressed: () {
+                          if (isElderly) _tts.speak('Запись удалена');
+                          Navigator.pop(context, true);
+                        },
+                        isElderly: isElderly,
                       ),
                     ),
                   ],
@@ -501,14 +534,15 @@ class _ResultsPageState extends State<ResultsPage> {
     required Color color,
     required Color textColor,
     required VoidCallback onPressed,
+    required bool isElderly,
   }) {
     return GestureDetector(
       onTap: onPressed,
       child: Container(
-        height: 52,
+        height: isElderly ? 56 : 48,
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(isElderly ? 14 : 12),
           border: Border.all(
             color: color == Colors.red.shade50
                 ? Colors.red.shade100
@@ -518,7 +552,9 @@ class _ResultsPageState extends State<ResultsPage> {
         child: Center(
           child: Text(
             text,
-            style: GoogleFonts.manrope(
+            style: isElderly
+                ? GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w600, color: textColor)
+                : GoogleFonts.manrope(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: textColor,

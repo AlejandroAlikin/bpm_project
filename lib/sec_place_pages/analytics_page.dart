@@ -4,7 +4,11 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../design/colors.dart';
+import '../design/elderly_styles.dart';
+import '../services/theme_service.dart';
+import '../services/tts_service.dart';
 import '../logic/photo_processing.dart';
 
 class AnalyticsPage extends StatefulWidget {
@@ -17,6 +21,7 @@ class AnalyticsPage extends StatefulWidget {
 class _AnalyticsPageState extends State<AnalyticsPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final TTSService _tts = TTSService();
   late Stream<QuerySnapshot> _measurementsStream;
 
   String _selectedPeriod = 'Неделя';
@@ -32,6 +37,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         .collection('measurements')
         .orderBy('date', descending: false)
         .snapshots();
+    _tts.init();
+  }
+
+  @override
+  void dispose() {
+    _tts.dispose();
+    super.dispose();
   }
 
   List<Measurement> _getFilteredMeasurements() {
@@ -97,20 +109,25 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    final isElderly = themeService.isElderlyMode;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isElderly ? ElderlyStyles.backgroundColor : Colors.white,
       appBar: AppBar(
         title: Text(
           'Анализ динамики',
-          style: GoogleFonts.manrope(
+          style: isElderly
+              ? ElderlyStyles.headlineMedium
+              : GoogleFonts.manrope(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: Colors.black,
           ),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
+        backgroundColor: isElderly ? ElderlyStyles.backgroundColor : Colors.white,
+        elevation: isElderly ? 1 : 0,
         iconTheme: const IconThemeData(color: Colors.black),
         scrolledUnderElevation: 0,
       ),
@@ -121,7 +138,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
             return Center(
               child: Text(
                 'Ошибка загрузки данных',
-                style: GoogleFonts.manrope(fontSize: 16, color: Colors.grey),
+                style: isElderly
+                    ? ElderlyStyles.bodyMedium
+                    : GoogleFonts.manrope(fontSize: 16, color: Colors.grey),
               ),
             );
           }
@@ -139,16 +158,15 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 children: [
                   Icon(
                     Icons.analytics_outlined,
-                    size: 60,
+                    size: isElderly ? 80 : 60,
                     color: Colors.grey.shade300,
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Нет данных для анализа',
-                    style: GoogleFonts.manrope(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
+                    style: isElderly
+                        ? ElderlyStyles.titleLarge
+                        : GoogleFonts.manrope(fontSize: 16, color: Colors.grey),
                   ),
                 ],
               ),
@@ -163,22 +181,27 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           final stats = _calculateStats(filteredMeasurements);
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: EdgeInsets.symmetric(
+              horizontal: isElderly ? 20 : 24,
+              vertical: isElderly ? 20 : 16,
+            ),
             child: Column(
               children: [
-                _buildPeriodSelector(),
+                _buildPeriodSelector(isElderly),
                 const SizedBox(height: 24),
                 _buildChartCard(
                   title: 'Артериальное давление',
-                  chart: _buildBloodPressureChart(filteredMeasurements),
+                  chart: _buildBloodPressureChart(filteredMeasurements, isElderly),
+                  isElderly: isElderly,
                 ),
                 const SizedBox(height: 16),
                 _buildChartCard(
                   title: 'Пульс',
-                  chart: _buildPulseChart(filteredMeasurements),
+                  chart: _buildPulseChart(filteredMeasurements, isElderly),
+                  isElderly: isElderly,
                 ),
                 const SizedBox(height: 16),
-                _buildStatsGrid(stats),
+                _buildStatsGrid(stats, isElderly),
               ],
             ),
           );
@@ -187,12 +210,12 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  Widget _buildPeriodSelector() {
+  Widget _buildPeriodSelector(bool isElderly) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
+        color: isElderly ? ElderlyStyles.surfaceColor : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(isElderly ? 14 : 12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -203,19 +226,22 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Material(
                 color: isSelected ? primaryBlue : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(isElderly ? 10 : 8),
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: () => setState(() => _selectedPeriod = period),
+                  borderRadius: BorderRadius.circular(isElderly ? 10 : 8),
+                  onTap: () {
+                    setState(() => _selectedPeriod = period);
+                    if (isElderly) _tts.speak(period);
+                  },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isElderly ? 20 : 16,
+                      vertical: isElderly ? 12 : 8,
                     ),
                     child: Text(
                       period,
                       style: GoogleFonts.manrope(
-                        fontSize: 14,
+                        fontSize: isElderly ? 16 : 14,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                         color: isSelected ? Colors.white : Colors.grey.shade700,
                       ),
@@ -230,12 +256,16 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  Widget _buildChartCard({required String title, required Widget chart}) {
+  Widget _buildChartCard({
+    required String title,
+    required Widget chart,
+    required bool isElderly,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isElderly ? 18 : 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: isElderly ? ElderlyStyles.surfaceColor : Colors.white,
+        borderRadius: BorderRadius.circular(isElderly ? 18 : 16),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
@@ -250,21 +280,22 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         children: [
           Text(
             title,
-            style: GoogleFonts.manrope(
+            style: isElderly
+                ? ElderlyStyles.titleLarge
+                : GoogleFonts.manrope(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Colors.black,
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(height: 200, child: chart),
+          SizedBox(height: isElderly ? 250 : 200, child: chart),
         ],
       ),
     );
   }
 
-  Widget _buildBloodPressureChart(List<Measurement> measurements) {
-    // Group measurements by day for the chart
+  Widget _buildBloodPressureChart(List<Measurement> measurements, bool isElderly) {
     final Map<String, List<Measurement>> groupedMeasurements = {};
 
     for (final measurement in measurements) {
@@ -272,7 +303,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       groupedMeasurements.putIfAbsent(dateKey, () => []).add(measurement);
     }
 
-    // Calculate average values for each day
     final chartData = groupedMeasurements.entries.map((entry) {
       final avgSystolic = entry.value
           .map((m) => int.tryParse(m.systolic) ?? 0)
@@ -285,11 +315,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       return ChartData(entry.key, avgSystolic.toDouble(), avgDiastolic.toDouble());
     }).toList();
 
+    final labelFontSize = isElderly ? 14.0 : 12.0;
+
     return SfCartesianChart(
       plotAreaBorderWidth: 0,
       primaryXAxis: CategoryAxis(
         isVisible: true,
-        labelStyle: GoogleFonts.manrope(fontSize: 12),
+        labelStyle: GoogleFonts.manrope(fontSize: labelFontSize),
         majorGridLines: const MajorGridLines(width: 0),
       ),
       primaryYAxis: NumericAxis(
@@ -298,7 +330,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         interval: 20,
         axisLine: const AxisLine(width: 0),
         majorTickLines: const MajorTickLines(size: 0),
-        labelStyle: GoogleFonts.manrope(fontSize: 12),
+        labelStyle: GoogleFonts.manrope(fontSize: labelFontSize),
       ),
       series: <CartesianSeries>[
         LineSeries<ChartData, String>(
@@ -308,12 +340,14 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           name: 'Систолическое',
           color: const Color(0xFFE53935),
           width: 2,
-          markerSettings: const MarkerSettings(
+          markerSettings: MarkerSettings(
             isVisible: true,
             shape: DataMarkerType.circle,
             borderWidth: 2,
-            borderColor: Color(0xFFE53935),
+            borderColor: const Color(0xFFE53935),
             color: Colors.white,
+            height: isElderly ? 10 : 8,
+            width: isElderly ? 10 : 8,
           ),
         ),
         LineSeries<ChartData, String>(
@@ -323,12 +357,14 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           name: 'Диастолическое',
           color: const Color(0xFFFB8C00),
           width: 2,
-          markerSettings: const MarkerSettings(
+          markerSettings: MarkerSettings(
             isVisible: true,
             shape: DataMarkerType.circle,
             borderWidth: 2,
-            borderColor: Color(0xFFFB8C00),
+            borderColor: const Color(0xFFFB8C00),
             color: Colors.white,
+            height: isElderly ? 10 : 8,
+            width: isElderly ? 10 : 8,
           ),
         ),
       ],
@@ -340,12 +376,12 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       legend: Legend(
         isVisible: true,
         position: LegendPosition.bottom,
-        textStyle: GoogleFonts.manrope(fontSize: 12),
+        textStyle: GoogleFonts.manrope(fontSize: labelFontSize),
       ),
     );
   }
 
-  Widget _buildPulseChart(List<Measurement> measurements) {
+  Widget _buildPulseChart(List<Measurement> measurements, bool isElderly) {
     final Map<String, List<Measurement>> groupedMeasurements = {};
 
     for (final measurement in measurements) {
@@ -361,11 +397,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       return ChartData(entry.key, 0, 0, avgPulse.toDouble());
     }).toList();
 
+    final labelFontSize = isElderly ? 14.0 : 12.0;
+
     return SfCartesianChart(
       plotAreaBorderWidth: 0,
       primaryXAxis: CategoryAxis(
         isVisible: true,
-        labelStyle: GoogleFonts.manrope(fontSize: 12),
+        labelStyle: GoogleFonts.manrope(fontSize: labelFontSize),
         majorGridLines: const MajorGridLines(width: 0),
       ),
       primaryYAxis: NumericAxis(
@@ -374,7 +412,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         interval: 10,
         axisLine: const AxisLine(width: 0),
         majorTickLines: const MajorTickLines(size: 0),
-        labelStyle: GoogleFonts.manrope(fontSize: 12),
+        labelStyle: GoogleFonts.manrope(fontSize: labelFontSize),
       ),
       series: <CartesianSeries>[
         LineSeries<ChartData, String>(
@@ -384,12 +422,14 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           name: 'Пульс',
           color: const Color(0xFF43A047),
           width: 2,
-          markerSettings: const MarkerSettings(
+          markerSettings: MarkerSettings(
             isVisible: true,
             shape: DataMarkerType.circle,
             borderWidth: 2,
-            borderColor: Color(0xFF43A047),
+            borderColor: const Color(0xFF43A047),
             color: Colors.white,
+            height: isElderly ? 10 : 8,
+            width: isElderly ? 10 : 8,
           ),
         ),
       ],
@@ -401,38 +441,42 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  Widget _buildStatsGrid(Map<String, dynamic> stats) {
+  Widget _buildStatsGrid(Map<String, dynamic> stats, bool isElderly) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
       childAspectRatio: 1.5,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
+      crossAxisSpacing: isElderly ? 20 : 16,
+      mainAxisSpacing: isElderly ? 20 : 16,
       children: [
         _buildStatCard(
           title: 'Среднее давление',
           value: stats['avgPressure'],
           unit: 'мм рт.ст.',
           color: primaryBlue,
+          isElderly: isElderly,
         ),
         _buildStatCard(
           title: 'Средний пульс',
           value: stats['avgPulse'],
           unit: 'уд/мин',
           color: const Color(0xFF43A047),
+          isElderly: isElderly,
         ),
         _buildStatCard(
           title: 'Максимальное',
           value: stats['maxPressure'],
           unit: 'мм рт.ст.',
           color: const Color(0xFFE53935),
+          isElderly: isElderly,
         ),
         _buildStatCard(
           title: 'Минимальное',
           value: stats['minPressure'],
           unit: 'мм рт.ст.',
           color: const Color(0xFFFB8C00),
+          isElderly: isElderly,
         ),
       ],
     );
@@ -443,12 +487,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     required String value,
     required String unit,
     required Color color,
+    required bool isElderly,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isElderly ? 18 : 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: isElderly ? ElderlyStyles.surfaceColor : Colors.white,
+        borderRadius: BorderRadius.circular(isElderly ? 18 : 16),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.1),
@@ -463,7 +508,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         children: [
           Text(
             title,
-            style: GoogleFonts.manrope(
+            style: isElderly
+                ? ElderlyStyles.bodyMedium.copyWith(color: ElderlyStyles.hintColor)
+                : GoogleFonts.manrope(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: Colors.grey.shade600,
@@ -473,7 +520,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           Text(
             value,
             style: GoogleFonts.manrope(
-              fontSize: 24,
+              fontSize: isElderly ? 28 : 24,
               fontWeight: FontWeight.w800,
               color: color,
             ),
@@ -481,7 +528,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           Text(
             unit,
             style: GoogleFonts.manrope(
-              fontSize: 12,
+              fontSize: isElderly ? 14 : 12,
               color: Colors.grey.shade500,
             ),
           ),

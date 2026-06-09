@@ -17,6 +17,7 @@ dependencies {
     // Add the dependencies for any other desired Firebase products
     // https://firebase.google.com/docs/android/setup#available-libraries
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.1")
 }
 
 android {
@@ -40,7 +41,7 @@ android {
         applicationId = "ru.vsu.cs.alikin.bpm"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion.toInt()
         versionCode = flutter.versionCode.toInt()
         versionName = flutter.versionName
@@ -52,6 +53,11 @@ android {
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+
+    aaptOptions {
+        noCompress("tflite")
+        noCompress("lite")
     }
 }
 

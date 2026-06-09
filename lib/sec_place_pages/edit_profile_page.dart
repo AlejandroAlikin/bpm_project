@@ -5,8 +5,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'dart:io';
 import '../design/colors.dart';
+import '../design/elderly_styles.dart';
+import '../services/theme_service.dart';
+import '../services/tts_service.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -22,6 +26,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final FirebaseStorage _storage = FirebaseStorage.instance;
+  final TTSService _tts = TTSService();
 
   File? _profileImage;
   bool _isLoading = false;
@@ -38,6 +43,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _emailController.text = user.email ?? '';
     }
     _loadProfileImage();
+    _tts.init();
   }
 
   @override
@@ -46,6 +52,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _passwordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
+    _tts.dispose();
     super.dispose();
   }
 
@@ -127,10 +134,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Письмо с подтверждением отправлено на ${_emailController.text.trim()}',
-            style: GoogleFonts.manrope(),
-          ),
+          content: Text('Письмо с подтверждением отправлено на ${_emailController.text.trim()}'),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -141,10 +145,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Ошибка: ${_getErrorMessage(e.code)}',
-            style: GoogleFonts.manrope(),
-          ),
+          content: Text('Ошибка: ${_getErrorMessage(e.code)}'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -163,10 +164,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (_newPasswordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Пароли не совпадают',
-            style: GoogleFonts.manrope(),
-          ),
+          content: Text('Пароли не совпадают'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -190,10 +188,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Пароль успешно изменен',
-            style: GoogleFonts.manrope(),
-          ),
+          content: Text('Пароль успешно изменен'),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -211,10 +206,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Ошибка: ${_getErrorMessage(e.code)}',
-            style: GoogleFonts.manrope(),
-          ),
+          content: Text('Ошибка: ${_getErrorMessage(e.code)}'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -248,25 +240,33 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    final isElderly = themeService.isElderlyMode;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isElderly ? ElderlyStyles.backgroundColor : Colors.white,
       appBar: AppBar(
         title: Text(
           'Редактирование профиля',
-          style: GoogleFonts.manrope(
+          style: isElderly
+              ? ElderlyStyles.headlineMedium
+              : GoogleFonts.manrope(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: Colors.black,
           ),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
+        backgroundColor: isElderly ? ElderlyStyles.backgroundColor : Colors.white,
+        elevation: isElderly ? 1 : 0,
         iconTheme: const IconThemeData(color: Colors.black),
         scrolledUnderElevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        padding: EdgeInsets.symmetric(
+          horizontal: isElderly ? 20 : 18,
+          vertical: isElderly ? 20 : 16,
+        ),
         child: Column(
           children: [
             GestureDetector(
@@ -274,8 +274,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
               child: Stack(
                 children: [
                   Container(
-                    width: 120,
-                    height: 120,
+                    width: isElderly ? 140 : 120,
+                    height: isElderly ? 140 : 120,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.grey.shade100,
@@ -293,7 +293,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     )
                         : Icon(
                       Icons.account_circle,
-                      size: 120,
+                      size: isElderly ? 140 : 120,
                       color: Colors.grey.shade400,
                     ),
                   ),
@@ -301,7 +301,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     bottom: 0,
                     right: 0,
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(isElderly ? 10 : 8),
                       decoration: BoxDecoration(
                         color: primaryBlue,
                         shape: BoxShape.circle,
@@ -310,9 +310,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           width: 2,
                         ),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.edit,
-                        size: 18,
+                        size: isElderly ? 20 : 18,
                         color: Colors.white,
                       ),
                     ),
@@ -321,12 +321,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
             ),
             const SizedBox(height: 32),
-            _buildSectionTitle('Основная информация'),
+            _buildSectionTitle('Основная информация', isElderly),
             _buildTextField(
               controller: _emailController,
               label: 'Email',
               icon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
+              isElderly: isElderly,
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -335,13 +336,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 onPressed: _isLoading ? null : _updateEmail,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryBlue,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: EdgeInsets.symmetric(vertical: isElderly ? 18 : 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(isElderly ? 16 : 14),
                   ),
                 ),
                 child: _isLoading
-                    ? const SizedBox(
+                    ? SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
@@ -352,7 +353,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     : Text(
                   'Обновить email',
                   style: GoogleFonts.manrope(
-                    fontSize: 16,
+                    fontSize: isElderly ? 18 : 16,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
@@ -360,13 +361,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
               ),
             ),
             const SizedBox(height: 24),
-            _buildSectionTitle('Безопасность'),
+            _buildSectionTitle('Безопасность', isElderly),
             if (!_showPasswordFields)
               _buildAccountOption(
                 icon: Icons.lock_outline,
                 title: 'Изменить пароль',
                 subtitle: 'Обновите ваш пароль',
                 onTap: () => setState(() => _showPasswordFields = true),
+                isElderly: isElderly,
               ),
             if (_showPasswordFields) ...[
               _buildTextField(
@@ -376,14 +378,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 obscureText: _obscurePassword,
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_off
-                        : Icons.visibility,
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
                     color: Colors.grey.shade500,
                   ),
-                  onPressed: () =>
-                      setState(() => _obscurePassword = !_obscurePassword),
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                 ),
+                isElderly: isElderly,
               ),
               const SizedBox(height: 16),
               _buildTextField(
@@ -393,14 +393,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 obscureText: _obscureNewPassword,
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscureNewPassword
-                        ? Icons.visibility_off
-                        : Icons.visibility,
+                    _obscureNewPassword ? Icons.visibility_off : Icons.visibility,
                     color: Colors.grey.shade500,
                   ),
-                  onPressed: () =>
-                      setState(() => _obscureNewPassword = !_obscureNewPassword),
+                  onPressed: () => setState(() => _obscureNewPassword = !_obscureNewPassword),
                 ),
+                isElderly: isElderly,
               ),
               const SizedBox(height: 16),
               _buildTextField(
@@ -410,14 +408,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 obscureText: _obscureConfirmPassword,
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscureConfirmPassword
-                        ? Icons.visibility_off
-                        : Icons.visibility,
+                    _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
                     color: Colors.grey.shade500,
                   ),
-                  onPressed: () => setState(
-                          () => _obscureConfirmPassword = !_obscureConfirmPassword),
+                  onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                 ),
+                isElderly: isElderly,
               ),
               const SizedBox(height: 16),
               Row(
@@ -426,16 +422,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     child: OutlinedButton(
                       onPressed: () => setState(() => _showPasswordFields = false),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: EdgeInsets.symmetric(vertical: isElderly ? 18 : 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(isElderly ? 16 : 14),
                         ),
                         side: BorderSide(color: Colors.grey.shade300),
                       ),
                       child: Text(
                         'Отмена',
                         style: GoogleFonts.manrope(
-                          fontSize: 16,
+                          fontSize: isElderly ? 18 : 16,
                           fontWeight: FontWeight.w600,
                           color: Colors.grey.shade700,
                         ),
@@ -448,13 +444,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       onPressed: _isLoading ? null : _updatePassword,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryBlue,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: EdgeInsets.symmetric(vertical: isElderly ? 18 : 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(isElderly ? 16 : 14),
                         ),
                       ),
                       child: _isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
@@ -465,7 +461,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           : Text(
                         'Сохранить',
                         style: GoogleFonts.manrope(
-                          fontSize: 16,
+                          fontSize: isElderly ? 18 : 16,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
@@ -481,14 +477,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, bool isElderly) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 8),
+      padding: EdgeInsets.only(bottom: isElderly ? 12 : 8, top: isElderly ? 12 : 8),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
           title,
-          style: GoogleFonts.manrope(
+          style: isElderly
+              ? ElderlyStyles.labelLarge.copyWith(color: ElderlyStyles.hintColor)
+              : GoogleFonts.manrope(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: Colors.grey.shade600,
@@ -503,47 +501,54 @@ class _EditProfilePageState extends State<EditProfilePage> {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    required bool isElderly,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: isElderly ? 16 : 12),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(isElderly ? 16 : 12),
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(isElderly ? 18 : 12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(isElderly ? 16 : 12),
               border: Border.all(color: Colors.grey.shade200),
+              color: isElderly ? ElderlyStyles.surfaceColor : null,
             ),
             child: Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: isElderly ? 56 : 40,
+                  height: isElderly ? 56 : 40,
                   decoration: BoxDecoration(
                     color: primaryBlue.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, color: primaryBlue, size: 20),
+                  child: Icon(icon, color: primaryBlue, size: isElderly ? 28 : 20),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: isElderly ? 16 : 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         title,
-                        style: GoogleFonts.manrope(
+                        style: isElderly
+                            ? ElderlyStyles.titleLarge
+                            : GoogleFonts.manrope(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: Colors.black,
                         ),
                       ),
+                      SizedBox(height: isElderly ? 8 : 4),
                       Text(
                         subtitle,
-                        style: GoogleFonts.manrope(
+                        style: isElderly
+                            ? ElderlyStyles.bodyMedium.copyWith(color: ElderlyStyles.hintColor)
+                            : GoogleFonts.manrope(
                           fontSize: 12,
                           color: Colors.grey.shade600,
                         ),
@@ -551,7 +556,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                Icon(
+                  Icons.chevron_right,
+                  color: Colors.grey.shade400,
+                  size: isElderly ? 32 : 24,
+                ),
               ],
             ),
           ),
@@ -567,6 +576,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     bool obscureText = false,
     TextInputType? keyboardType,
     Widget? suffixIcon,
+    required bool isElderly,
   }) {
     return TextField(
       controller: controller,
@@ -574,26 +584,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
       keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: Colors.grey.shade600),
+        prefixIcon: Icon(icon, color: Colors.grey.shade600, size: isElderly ? 22 : 20),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: Colors.grey.shade50,
+        fillColor: isElderly ? ElderlyStyles.surfaceColor : Colors.grey.shade50,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(isElderly ? 14 : 12),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: primaryBlue,
-            width: 2,
-          ),
+          borderRadius: BorderRadius.circular(isElderly ? 14 : 12),
+          borderSide: BorderSide(color: primaryBlue, width: 2),
         ),
         labelStyle: GoogleFonts.manrope(
+          fontSize: isElderly ? 16 : 14,
           color: Colors.grey.shade600,
         ),
       ),
       style: GoogleFonts.manrope(
+        fontSize: isElderly ? 18 : 16,
         color: Colors.black,
         fontWeight: FontWeight.w500,
       ),

@@ -1,12 +1,6 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
-plugins {
-    id("com.android.application") version "8.7.0" apply false
-    id("org.jetbrains.kotlin.android") version "1.8.22" apply false
-    id("com.google.gms.google-services") version "4.3.15" apply false
-}
-
 buildscript {
-    val kotlinVersion = "1.9.23"  // Using Kotlin DSL variable declaration
+    val kotlinVersion = "1.9.23"
     repositories {
         google()
         mavenCentral()
@@ -23,6 +17,12 @@ allprojects {
         google()
         mavenCentral()
     }
+}
+
+plugins {
+    id("com.android.application") version "8.9.1" apply false
+    id("com.google.gms.google-services") version "4.3.15" apply false
+    // Kotlin плагин НЕ указываем здесь — он уже в buildscript
 }
 
 // For changing build directory (if really needed)
